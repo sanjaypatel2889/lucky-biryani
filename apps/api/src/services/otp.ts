@@ -11,10 +11,13 @@ const MAX_ATTEMPTS = 5;
 
 export const otp = {
   async send(phone: string) {
-    const code = config.devOtp || randomDigits();
+    // When a real SMS provider is configured, generate a random OTP and
+    // never echo it back to the client (no demo hint shown).
+    const realSmsEnabled = config.fast2sms.enabled || config.msg91.enabled;
+    const code = realSmsEnabled ? randomDigits() : (config.devOtp || randomDigits());
     store.set(phone, { otp: code, expiresAt: Date.now() + TTL_MS, attempts: 0 });
     await notify.sms(phone, 'OTP', { otp: code });
-    return { sent: true, devOtp: config.devOtp ? code : undefined };
+    return { sent: true, devOtp: realSmsEnabled ? undefined : (config.devOtp ? code : undefined) };
   },
 
   verify(phone: string, code: string): boolean {

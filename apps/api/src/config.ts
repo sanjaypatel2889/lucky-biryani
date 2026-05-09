@@ -20,6 +20,10 @@ export const config = {
     template: env('MSG91_DLT_TEMPLATE_ID_OTP'),
     enabled: !!env('MSG91_AUTH_KEY'),
   },
+  fast2sms: {
+    apiKey: env('FAST2SMS_API_KEY'),
+    enabled: !!env('FAST2SMS_API_KEY'),
+  },
   whatsapp: {
     phoneId: env('WA_PHONE_NUMBER_ID'),
     token: env('WA_ACCESS_TOKEN'),

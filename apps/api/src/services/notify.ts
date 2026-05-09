@@ -31,12 +31,41 @@ async function record(c: {
 export const notify = {
   async sms(to: string, template: string, vars: Record<string, any>) {
     const body = renderTemplate(template, vars);
-    if (config.msg91.enabled) {
+    let status = 'SENT';
+    let error: string | undefined;
+
+    if (config.fast2sms.enabled && template === 'OTP') {
+      // Fast2SMS "OTP route" — works for Indian +91 numbers, no DLT required.
+      // Their fixed template sends the otp value directly.
+      try {
+        const tenDigits = to.replace(/^\+?91/, '').replace(/\D/g, '');
+        if (tenDigits.length !== 10) {
+          throw new Error(`Fast2SMS needs 10-digit IN number, got "${to}"`);
+        }
+        const url = new URL('https://www.fast2sms.com/dev/bulkV2');
+        url.searchParams.set('authorization', config.fast2sms.apiKey);
+        url.searchParams.set('route', 'otp');
+        url.searchParams.set('numbers', tenDigits);
+        url.searchParams.set('variables_values', String(vars.otp ?? ''));
+
+        const res = await fetch(url.toString(), { method: 'GET' });
+        const json: any = await res.json().catch(() => ({}));
+        if (!res.ok || json?.return !== true) {
+          throw new Error(`Fast2SMS rejected: ${JSON.stringify(json).slice(0, 200)}`);
+        }
+        console.log(`[SMS → ${to}] sent via Fast2SMS (request_id=${json.request_id})`);
+      } catch (e: any) {
+        status = 'FAILED';
+        error = e?.message || 'fast2sms_failed';
+        console.error('[Fast2SMS] failed:', error);
+      }
+    } else if (config.msg91.enabled) {
       // TODO: real MSG91 call
+      console.log(`[SMS → ${to}] ${body}  (msg91 stub)`);
     } else {
       console.log(`[SMS → ${to}] ${body}`);
     }
-    await record({ channel: 'SMS', to, template, payload: { body, vars } });
+    await record({ channel: 'SMS', to, template, payload: { body, vars }, status, error });
   },
 
   async whatsapp(to: string, template: string, vars: Record<string, any>) {

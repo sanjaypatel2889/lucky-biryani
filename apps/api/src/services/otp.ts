@@ -1,6 +1,5 @@
 // In-memory OTP store. Production should use Redis with TTL.
 
-import { config } from '../config';
 import { notify } from './notify';
 
 type Entry = { otp: string; expiresAt: number; attempts: number };
@@ -11,13 +10,12 @@ const MAX_ATTEMPTS = 5;
 
 export const otp = {
   async send(phone: string) {
-    // When a real SMS provider is configured, generate a random OTP and
-    // never echo it back to the client (no demo hint shown).
-    const realSmsEnabled = config.fast2sms.enabled || config.msg91.enabled;
-    const code = realSmsEnabled ? randomDigits() : (config.devOtp || randomDigits());
+    // Always generate a fresh random 6-digit OTP. Never echo it back to the
+    // client — the user sees it on their phone via Fast2SMS.
+    const code = randomDigits();
     store.set(phone, { otp: code, expiresAt: Date.now() + TTL_MS, attempts: 0 });
     await notify.sms(phone, 'OTP', { otp: code });
-    return { sent: true, devOtp: realSmsEnabled ? undefined : (config.devOtp ? code : undefined) };
+    return { sent: true };
   },
 
   verify(phone: string, code: string): boolean {

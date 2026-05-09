@@ -11,8 +11,8 @@ const phoneSchema = z.string().regex(/^\+?\d{10,13}$/);
 authRouter.post('/otp/send', async (req, res) => {
   const phone = phoneSchema.safeParse(req.body?.phone);
   if (!phone.success) return res.status(400).json({ error: 'invalid_phone' });
-  const r = await otp.send(phone.data);
-  res.json({ ok: true, devOtp: r.devOtp });
+  await otp.send(phone.data);
+  res.json({ ok: true });
 });
 
 authRouter.post('/otp/verify', async (req, res) => {

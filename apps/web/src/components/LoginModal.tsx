@@ -20,7 +20,6 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [demoHint, setDemoHint] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [resendIn, setResendIn] = useState(0);
@@ -33,7 +32,6 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
       setStep('phone');
       setOtp(['', '', '', '', '', '']);
       setErr('');
-      setDemoHint('');
       setResendIn(0);
     }
   }, [open]);
@@ -63,8 +61,7 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
     if (phone.length < 10) return;
     setBusy(true); setErr('');
     try {
-      const r = await loginOTP(fullPhone);
-      setDemoHint(r.devOtp ?? '');
+      await loginOTP(fullPhone);
       setStep('otp');
       setResendIn(RESEND_SECONDS);
     } catch (e: any) {
@@ -240,7 +237,6 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
                   setStep('phone');
                   setOtp(['', '', '', '', '', '']);
                   setErr('');
-                  setDemoHint('');
                 }}
                 className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-brand-600"
               >
@@ -266,16 +262,6 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
                   Edit
                 </button>
               </p>
-
-              {demoHint && (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
-                  <span className="font-semibold">Demo mode</span> · Real SMS not enabled.
-                  Use OTP{' '}
-                  <span className="rounded bg-amber-200/70 px-1.5 py-0.5 font-mono text-sm font-bold tracking-widest text-amber-900">
-                    {demoHint}
-                  </span>
-                </div>
-              )}
 
               <div className="mt-6 flex justify-between gap-2">
                 {otp.map((d, i) => (

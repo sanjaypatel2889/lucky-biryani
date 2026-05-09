@@ -18,7 +18,7 @@ services:
     plan: free
     region: singapore
     rootDir: .
-    buildCommand: node scripts/use-postgres.js && npm install && npm run build --workspace apps/api && npm run release --workspace apps/api
+    buildCommand: node scripts/use-postgres.js && npm install --include=dev --no-audit --no-fund && npm run build --workspace apps/api && npm run release --workspace apps/api
     startCommand: npm start --workspace apps/api
     healthCheckPath: /api/v1/health
     autoDeploy: true

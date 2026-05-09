@@ -1,13 +1,12 @@
-# Render.com blueprint — Lucky Biryani Centre
-# Deploys: managed Postgres + API (Express) + Web (Next.js).
-# Apply with `render blueprint launch` or by connecting this repo in the Render UI.
-
-databases:
-  - name: lbc-db
-    databaseName: luckybiryani
-    user: lbc
-    plan: free
-    region: singapore
+# Render.com blueprint — Lucky Biryani Centre (API only)
+#
+# Hybrid free deploy:
+#   - Postgres on Neon (free, 3 GB, never expires)         — neon.tech
+#   - API on Render free                                    — this file
+#   - Next.js web on Vercel free                            — vercel.json + Vercel UI
+#
+# Render's own free Postgres expires after 30 days, which is why we use Neon.
+# DATABASE_URL is set manually to the Neon connection string in the Render UI.
 
 services:
   # ---------------------------------------------------------------------------
@@ -26,16 +25,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Paste the Neon connection string here in the Render UI:
+      # postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
       - key: DATABASE_URL
-        fromDatabase:
-          name: lbc-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: ENABLE_AUTOMATION
         value: "true"
-      # Disable the dev OTP backdoor in prod by leaving DEV_OTP unset.
-      # Set FRONTEND_URL to the lbc-web URL once that service exists.
+      # Set to your Vercel URL once the web app is deployed:
+      # e.g. https://lucky-biryani.vercel.app
       - key: FRONTEND_URL
         sync: false
       # --- Optional integrations: leave blank to keep stub adapters active ---
@@ -68,33 +67,4 @@ services:
       - key: S3_REGION
         sync: false
       - key: SENTRY_DSN_BACKEND
-        sync: false
-
-  # ---------------------------------------------------------------------------
-  # Web — Next.js 14 app router (customer + admin + rider sub-paths)
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: lbc-web
-    runtime: node
-    plan: free
-    region: singapore
-    rootDir: .
-    buildCommand: npm install && npm run build --workspace apps/web
-    startCommand: npm start --workspace apps/web
-    autoDeploy: true
-    envVars:
-      - key: NODE_ENV
-        value: production
-      # Set after lbc-api deploys (e.g. https://lbc-api.onrender.com).
-      # NEXT_PUBLIC_* values are baked at build time, so changing them
-      # requires a rebuild ("Manual Deploy → Clear build cache & deploy").
-      - key: NEXT_PUBLIC_API_BASE_URL
-        sync: false
-      - key: API_PROXY_URL
-        sync: false
-      - key: NEXT_PUBLIC_WS_URL
-        sync: false
-      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-        sync: false
-      - key: NEXT_PUBLIC_SENTRY_DSN_FRONTEND
         sync: false

@@ -6,7 +6,7 @@ databases:
   - name: lbc-db
     databaseName: luckybiryani
     user: lbc
-    plan: starter
+    plan: free
     region: singapore
 
 services:
@@ -16,7 +16,7 @@ services:
   - type: web
     name: lbc-api
     runtime: node
-    plan: starter
+    plan: free
     region: singapore
     rootDir: .
     buildCommand: node scripts/use-postgres.js && npm install && npm run build --workspace apps/api && npm run release --workspace apps/api
@@ -76,7 +76,7 @@ services:
   - type: web
     name: lbc-web
     runtime: node
-    plan: starter
+    plan: free
     region: singapore
     rootDir: .
     buildCommand: npm install && npm run build --workspace apps/web

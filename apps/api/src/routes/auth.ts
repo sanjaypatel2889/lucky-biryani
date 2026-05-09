@@ -6,32 +6,45 @@ import { signToken, requireAuth } from '../auth';
 
 export const authRouter = Router();
 
-const phoneSchema = z.string().regex(/^\+?\d{10,13}$/);
+const emailSchema = z.string().trim().toLowerCase().email();
 
 authRouter.post('/otp/send', async (req, res) => {
-  const phone = phoneSchema.safeParse(req.body?.phone);
-  if (!phone.success) return res.status(400).json({ error: 'invalid_phone' });
-  await otp.send(phone.data);
+  const email = emailSchema.safeParse(req.body?.email);
+  if (!email.success) return res.status(400).json({ error: 'invalid_email' });
+  await otp.send(email.data);
   res.json({ ok: true });
 });
 
 authRouter.post('/otp/verify', async (req, res) => {
   const body = z
-    .object({ phone: phoneSchema, otp: z.string().length(6), name: z.string().optional() })
+    .object({ email: emailSchema, otp: z.string().length(6), name: z.string().optional() })
     .safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'invalid_body' });
-  const { phone, otp: code, name } = body.data;
-  if (!otp.verify(phone, code)) return res.status(401).json({ error: 'invalid_otp' });
+  const { email, otp: code, name } = body.data;
+  if (!otp.verify(email, code)) return res.status(401).json({ error: 'invalid_otp' });
 
-  let user = await prisma.user.findUnique({ where: { phone } });
+  let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
+    // First-time login. Phone is required by the schema for legacy reasons,
+    // so we synthesise a unique placeholder until the user supplies a real
+    // phone number from their profile screen.
+    const placeholderPhone = `email:${email}`;
     user = await prisma.user.create({
-      data: { phone, name: name ?? null, role: 'CUSTOMER', createdAt: now() },
+      data: {
+        email,
+        phone: placeholderPhone,
+        name: name ?? null,
+        role: 'CUSTOMER',
+        createdAt: now(),
+      },
     });
   }
   const token = signToken({ id: user.id, role: user.role, phone: user.phone });
   res.cookie('token', token, { httpOnly: true, sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
-  res.json({ token, user: { id: user.id, phone: user.phone, name: user.name, role: user.role } });
+  res.json({
+    token,
+    user: { id: user.id, email: user.email, phone: user.phone, name: user.name, role: user.role },
+  });
 });
 
 authRouter.get('/me', requireAuth(), async (req, res) => {

@@ -37,6 +37,14 @@ services:
       # e.g. https://lucky-biryani.vercel.app
       - key: FRONTEND_URL
         sync: false
+      # Resend — free email OTP delivery (3000 emails/month).
+      # Get key at resend.com/api-keys after signing up.
+      - key: RESEND_API_KEY
+        sync: false
+      # Sender address. Defaults to onboarding@resend.dev (works without
+      # domain verification). Replace with your own domain once verified.
+      - key: EMAIL_FROM
+        value: Lucky Biryani <onboarding@resend.dev>
       # --- Optional integrations: leave blank to keep stub adapters active ---
       - key: RAZORPAY_KEY_ID
         sync: false

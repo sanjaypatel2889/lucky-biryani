@@ -2,7 +2,9 @@
   "name": "lucky-biryani",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "npm --workspace apps/api run dev",
@@ -13,6 +15,7 @@
     "build": "npm --workspace apps/api run build && npm --workspace apps/web run build"
   },
   "devDependencies": {
-    "concurrently": "^9.0.1"
+    "concurrently": "^9.0.1",
+    "playwright": "^1.59.1"
   }
 }

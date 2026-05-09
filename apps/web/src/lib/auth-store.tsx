@@ -3,12 +3,19 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from './api';
 
-type User = { id: string; phone: string; name?: string | null; role: string; loyaltyPoints?: number };
+type User = {
+  id: string;
+  email?: string | null;
+  phone?: string | null;
+  name?: string | null;
+  role: string;
+  loyaltyPoints?: number;
+};
 type Ctx = {
   user: User | null;
   loading: boolean;
-  loginOTP: (phone: string) => Promise<{ devOtp?: string }>;
-  verifyOTP: (phone: string, otp: string, name?: string) => Promise<User>;
+  loginOTP: (email: string) => Promise<{ ok: true }>;
+  verifyOTP: (email: string, otp: string, name?: string) => Promise<User>;
   logout: () => void;
   refresh: () => Promise<void>;
 };
@@ -34,12 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value: Ctx = {
     user, loading,
-    async loginOTP(phone) {
-      return api('/api/v1/auth/otp/send', { method: 'POST', body: JSON.stringify({ phone }) });
+    async loginOTP(email) {
+      return api('/api/v1/auth/otp/send', { method: 'POST', body: JSON.stringify({ email }) });
     },
-    async verifyOTP(phone, otp, name) {
+    async verifyOTP(email, otp, name) {
       const r = await api<{ token: string; user: User }>('/api/v1/auth/otp/verify', {
-        method: 'POST', body: JSON.stringify({ phone, otp, name }),
+        method: 'POST', body: JSON.stringify({ email, otp, name }),
       });
       localStorage.setItem('lbc_token', r.token);
       setUser(r.user);

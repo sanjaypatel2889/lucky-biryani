@@ -3,47 +3,36 @@
 import { useState, useEffect, useRef, KeyboardEvent, ClipboardEvent } from 'react';
 import { useAuth } from '@/lib/auth-store';
 
-const COUNTRY_CODES = [
-  { code: '+91',  flag: '🇮🇳', name: 'India' },
-  { code: '+1',   flag: '🇺🇸', name: 'United States' },
-  { code: '+44',  flag: '🇬🇧', name: 'United Kingdom' },
-  { code: '+971', flag: '🇦🇪', name: 'United Arab Emirates' },
-  { code: '+65',  flag: '🇸🇬', name: 'Singapore' },
-];
-
 const RESEND_SECONDS = 30;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { loginOTP, verifyOTP } = useAuth();
 
-  const [country, setCountry] = useState(COUNTRY_CODES[0]);
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [step, setStep] = useState<'email' | 'otp'>('email');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [resendIn, setResendIn] = useState(0);
 
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  // Reset everything when modal closes
   useEffect(() => {
     if (!open) {
-      setStep('phone');
+      setStep('email');
       setOtp(['', '', '', '', '', '']);
       setErr('');
       setResendIn(0);
     }
   }, [open]);
 
-  // Resend countdown
   useEffect(() => {
     if (resendIn <= 0) return;
     const t = setInterval(() => setResendIn((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [resendIn]);
 
-  // Auto-focus first OTP box when entering OTP step
   useEffect(() => {
     if (step === 'otp') {
       const id = setTimeout(() => otpRefs.current[0]?.focus(), 80);
@@ -53,19 +42,19 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
 
-  const fullPhone = `${country.code}${phone}`;
+  const emailValid = EMAIL_RE.test(email.trim());
   const otpString = otp.join('');
   const otpComplete = otpString.length === 6 && /^\d{6}$/.test(otpString);
 
   async function send() {
-    if (phone.length < 10) return;
+    if (!emailValid) return;
     setBusy(true); setErr('');
     try {
-      await loginOTP(fullPhone);
+      await loginOTP(email.trim().toLowerCase());
       setStep('otp');
       setResendIn(RESEND_SECONDS);
     } catch (e: any) {
-      setErr(e?.message || 'Could not send OTP. Please try again.');
+      setErr(e?.message || 'Could not send the code. Please try again.');
     }
     setBusy(false);
   }
@@ -79,10 +68,10 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
     if (code.length !== 6) return;
     setBusy(true); setErr('');
     try {
-      await verifyOTP(fullPhone, code);
+      await verifyOTP(email.trim().toLowerCase(), code);
       onClose();
     } catch (e: any) {
-      setErr(e?.message || 'Invalid OTP. Please try again.');
+      setErr(e?.message || 'Invalid or expired code. Please try again.');
       setOtp(['', '', '', '', '', '']);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     }
@@ -97,9 +86,7 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
     if (err) setErr('');
     if (digit && i < 5) otpRefs.current[i + 1]?.focus();
     const joined = next.join('');
-    if (joined.length === 6) {
-      setTimeout(() => verify(joined), 60);
-    }
+    if (joined.length === 6) setTimeout(() => verify(joined), 60);
   }
 
   function handleOtpKey(i: number, e: KeyboardEvent<HTMLInputElement>) {
@@ -139,10 +126,9 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
         className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          className="absolute right-4 top-4 z-10 rounded-full p-1.5 text-white/80 transition hover:bg-white/20 hover:text-white"
           aria-label="Close"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -150,7 +136,6 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
           </svg>
         </button>
 
-        {/* Brand strip */}
         <div className="bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 px-7 py-6">
           <div className="flex items-center gap-2 text-white/90">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20 font-display text-xl font-bold">
@@ -164,47 +149,31 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
         </div>
 
         <div className="px-7 pb-7 pt-6">
-          {step === 'phone' ? (
+          {step === 'email' ? (
             <>
               <h2 className="font-display text-2xl font-bold text-slate-900">Login or Sign up</h2>
               <p className="mt-1 text-sm text-slate-500">
-                We'll send a one-time password to verify your number.
+                We'll email you a one-time code to verify your address.
               </p>
 
               <div className="mt-6 space-y-4">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Phone number
+                    Email address
                   </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={country.code}
-                      onChange={(e) =>
-                        setCountry(
-                          COUNTRY_CODES.find((c) => c.code === e.target.value) ?? COUNTRY_CODES[0],
-                        )
-                      }
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.flag} {c.code}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      autoFocus
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && phone.length >= 10) send();
-                      }}
-                      placeholder="10-digit number"
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-base tracking-wide outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                    />
-                  </div>
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && emailValid) send();
+                    }}
+                    placeholder="you@example.com"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
                 </div>
 
                 {err && (
@@ -216,9 +185,9 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
                 <button
                   className="w-full rounded-lg bg-brand-600 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-brand-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                   onClick={send}
-                  disabled={busy || phone.length < 10}
+                  disabled={busy || !emailValid}
                 >
-                  {busy ? 'Sending OTP…' : 'Continue'}
+                  {busy ? 'Sending code…' : 'Send code'}
                 </button>
 
                 <p className="text-center text-[11px] leading-relaxed text-slate-400">
@@ -234,7 +203,7 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
             <>
               <button
                 onClick={() => {
-                  setStep('phone');
+                  setStep('email');
                   setOtp(['', '', '', '', '', '']);
                   setErr('');
                 }}
@@ -245,15 +214,13 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
                 </svg>
                 Back
               </button>
-              <h2 className="font-display text-2xl font-bold text-slate-900">Verify OTP</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Code sent to{' '}
-                <span className="font-semibold text-slate-800">
-                  {country.code} {phone}
-                </span>{' '}
+              <h2 className="font-display text-2xl font-bold text-slate-900">Check your inbox</h2>
+              <p className="mt-1 text-sm text-slate-500 break-words">
+                We sent a 6-digit code to{' '}
+                <span className="font-semibold text-slate-800">{email}</span>{' '}
                 <button
                   onClick={() => {
-                    setStep('phone');
+                    setStep('email');
                     setOtp(['', '', '', '', '', '']);
                     setErr('');
                   }}
@@ -302,15 +269,15 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
               </button>
 
               <div className="mt-4 text-center text-sm text-slate-500">
-                Didn't receive the code?{' '}
+                Didn't get it? Check spam, or{' '}
                 {resendIn > 0 ? (
-                  <span className="text-slate-400">Resend in {resendIn}s</span>
+                  <span className="text-slate-400">resend in {resendIn}s</span>
                 ) : (
                   <button
                     onClick={resend}
                     className="font-semibold text-brand-600 transition hover:text-brand-700 hover:underline"
                   >
-                    Resend OTP
+                    resend code
                   </button>
                 )}
               </div>

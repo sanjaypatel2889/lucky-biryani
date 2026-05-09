@@ -79,12 +79,38 @@ export const notify = {
   },
 
   async email(to: string, subject: string, body: string) {
+    let status = 'SENT';
+    let error: string | undefined;
+
     if (config.email.enabled) {
-      // TODO: real Resend call
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.email.resendKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: config.email.from,
+            to: [to],
+            subject,
+            html: body,
+          }),
+        });
+        const json: any = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.id) {
+          throw new Error(`Resend rejected: ${JSON.stringify(json).slice(0, 300)}`);
+        }
+        console.log(`[MAIL → ${to}] sent via Resend (id=${json.id})`);
+      } catch (e: any) {
+        status = 'FAILED';
+        error = e?.message || 'resend_failed';
+        console.error('[Resend] failed:', error);
+      }
     } else {
       console.log(`[MAIL → ${to}] ${subject}\n${body}`);
     }
-    await record({ channel: 'EMAIL', to, template: subject, payload: { body } });
+    await record({ channel: 'EMAIL', to, template: subject, payload: { body }, status, error });
   },
 };
 

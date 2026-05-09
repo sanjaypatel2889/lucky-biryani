@@ -32,6 +32,11 @@ export const config = {
   },
   email: {
     resendKey: env('RESEND_API_KEY'),
+    // Sender address. Defaults to Resend's shared sandbox sender, which works
+    // immediately without domain verification. For production, set
+    // EMAIL_FROM to "Lucky Biryani <hello@yourdomain.com>" after verifying
+    // the domain at resend.com/domains.
+    from: env('EMAIL_FROM', 'Lucky Biryani <onboarding@resend.dev>'),
     enabled: !!env('RESEND_API_KEY'),
   },
 

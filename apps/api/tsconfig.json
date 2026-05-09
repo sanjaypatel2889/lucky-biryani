@@ -11,7 +11,8 @@
     "rootDir": "src",
     "resolveJsonModule": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "ignoreDeprecations": "5.0"
   },
-  "include": ["src/**/*", "prisma/**/*.ts"]
+  "include": ["src/**/*"]
 }

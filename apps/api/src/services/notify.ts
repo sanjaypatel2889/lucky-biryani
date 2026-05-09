@@ -82,7 +82,35 @@ export const notify = {
     let status = 'SENT';
     let error: string | undefined;
 
-    if (config.email.enabled) {
+    if (config.email.brevoKey && config.email.brevoSenderEmail) {
+      // Brevo (Sendinblue) — preferred. Free tier sends to any address.
+      try {
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': config.email.brevoKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: config.email.brevoSenderName, email: config.email.brevoSenderEmail },
+            to: [{ email: to }],
+            subject,
+            htmlContent: body,
+          }),
+        });
+        const json: any = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.messageId) {
+          throw new Error(`Brevo rejected: ${JSON.stringify(json).slice(0, 300)}`);
+        }
+        console.log(`[MAIL → ${to}] sent via Brevo (messageId=${json.messageId})`);
+      } catch (e: any) {
+        status = 'FAILED';
+        error = e?.message || 'brevo_failed';
+        console.error('[Brevo] failed:', error);
+      }
+    } else if (config.email.resendKey) {
+      // Resend fallback — only sends to verified addresses on free tier.
       try {
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',

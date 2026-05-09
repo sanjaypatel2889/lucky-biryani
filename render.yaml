@@ -37,12 +37,21 @@ services:
       # e.g. https://lucky-biryani.vercel.app
       - key: FRONTEND_URL
         sync: false
-      # Resend — free email OTP delivery (3000 emails/month).
-      # Get key at resend.com/api-keys after signing up.
+      # Brevo (Sendinblue) - PREFERRED for email OTP. Free 300/day, sends
+      # to ANY address after verifying just your sender email (no DNS).
+      # Get key at app.brevo.com -> SMTP & API -> API Keys.
+      - key: BREVO_API_KEY
+        sync: false
+      # The email address you verified as a sender on Brevo (any inbox you
+      # control - your gmail works fine).
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: Lucky Biryani
+      # Resend - kept as fallback. Only sends to your signup email on free
+      # tier unless you verify a domain.
       - key: RESEND_API_KEY
         sync: false
-      # Sender address. Defaults to onboarding@resend.dev (works without
-      # domain verification). Replace with your own domain once verified.
       - key: EMAIL_FROM
         value: Lucky Biryani <onboarding@resend.dev>
       # --- Optional integrations: leave blank to keep stub adapters active ---

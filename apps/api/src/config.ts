@@ -31,13 +31,15 @@ export const config = {
     enabled: !!env('WA_ACCESS_TOKEN'),
   },
   email: {
+    // Brevo (Sendinblue) — free 300 emails/day, sends to any address after
+    // verifying just your sender email (no domain DNS required).
+    brevoKey: env('BREVO_API_KEY'),
+    brevoSenderEmail: env('BREVO_SENDER_EMAIL'),
+    brevoSenderName: env('BREVO_SENDER_NAME', 'Lucky Biryani'),
+    // Resend kept as a fallback if anyone wants to use it (requires domain verification for non-self addresses).
     resendKey: env('RESEND_API_KEY'),
-    // Sender address. Defaults to Resend's shared sandbox sender, which works
-    // immediately without domain verification. For production, set
-    // EMAIL_FROM to "Lucky Biryani <hello@yourdomain.com>" after verifying
-    // the domain at resend.com/domains.
     from: env('EMAIL_FROM', 'Lucky Biryani <onboarding@resend.dev>'),
-    enabled: !!env('RESEND_API_KEY'),
+    enabled: !!env('BREVO_API_KEY') || !!env('RESEND_API_KEY'),
   },
 
   branch: {

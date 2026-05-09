@@ -1,0 +1,383 @@
+// Lucky Biryani Centre — datastore
+//
+// Source-of-truth: this file uses SQLite for zero-setup local dev. The
+// Render build swaps the provider to "postgresql" via scripts/use-postgres.js
+// before running `prisma generate`. Schema uses ISO-string timestamps and
+// string-encoded enums so the same shape works across both engines.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Identity
+// =============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  email     String?  @unique
+  name      String?
+  role      String   @default("CUSTOMER") // CUSTOMER | ADMIN | RIDER | OWNER
+  loyaltyPoints Int  @default(0)
+  noShowCount   Int  @default(0)
+  flagged       Boolean @default(false)
+  createdAt String   @default("0")
+
+  addresses Address[]
+  orders    Order[]
+  bookings  Booking[]
+  reviews   Review[]
+  rider     Rider?
+  ledger    LoyaltyLedger[]
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String  @default("Home")
+  line1     String
+  line2     String?
+  pincode   String
+  city      String  @default("")
+  lat       Float
+  lng       Float
+  isDefault Boolean @default(false)
+}
+
+// =============================================================================
+// Branch (multi-branch ready, only one row in single-restaurant mode)
+// =============================================================================
+
+model Branch {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  lat         Float
+  lng         Float
+  address     String
+  openHour    Int     @default(11)  // 24h hour
+  closeHour   Int     @default(23)
+  fssai       String?
+  gstin       String?
+  isActive    Boolean @default(true)
+
+  tables   Table[]
+  bookings Booking[]
+  orders   Order[]
+  inventory Inventory[]
+}
+
+// =============================================================================
+// Menu
+// =============================================================================
+
+model Category {
+  id        String @id @default(cuid())
+  name      String
+  slug      String @unique
+  position  Int    @default(0)
+  imageUrl  String?
+  isActive  Boolean @default(true)
+
+  items Item[]
+}
+
+model Item {
+  id          String  @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  name        String
+  description String?
+  basePrice   Float
+  isVeg       Boolean @default(true)
+  spiceLevel  Int     @default(1) // 0-3
+  imageUrl    String?
+  prepMinutes Int     @default(15)
+  taxRate     Float   @default(0.05)
+  availDelivery Boolean @default(true)
+  availDinein   Boolean @default(true)
+  isActive    Boolean @default(true)
+
+  modifierGroups ItemModifierGroup[]
+  orderItems     OrderItem[]
+  inventory      Inventory[]
+  reviews        Review[]
+}
+
+model ModifierGroup {
+  id       String @id @default(cuid())
+  name     String          // e.g. "Spice Level", "Add-ons"
+  required Boolean @default(false)
+  minSelect Int @default(0)
+  maxSelect Int @default(1)
+
+  modifiers Modifier[]
+  items     ItemModifierGroup[]
+}
+
+model Modifier {
+  id        String  @id @default(cuid())
+  groupId   String
+  group     ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String  // "Mild", "Hot", "Extra Raita"
+  priceDelta Float  @default(0)
+  position  Int     @default(0)
+  isActive  Boolean @default(true)
+}
+
+model ItemModifierGroup {
+  itemId  String
+  item    Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  groupId String
+  group   ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  position Int @default(0)
+
+  @@id([itemId, groupId])
+}
+
+// =============================================================================
+// Inventory (per branch per item)
+// =============================================================================
+
+model Inventory {
+  itemId    String
+  item      Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  branchId  String
+  branch    Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  available Int    @default(999)
+  reorderAt Int    @default(5)
+  updatedAt String @default("0")
+
+  @@id([itemId, branchId])
+}
+
+// =============================================================================
+// Orders
+// =============================================================================
+
+model Order {
+  id            String @id @default(cuid())
+  orderNumber   String @unique
+  userId        String
+  user          User   @relation(fields: [userId], references: [id])
+  branchId      String
+  branch        Branch @relation(fields: [branchId], references: [id])
+  type          String @default("DELIVERY") // DELIVERY | PICKUP | DINEIN
+  status        String @default("PENDING_PAYMENT")
+  // PENDING_PAYMENT | PAID | ACCEPTED | PREPARING | READY |
+  // OUT_FOR_DELIVERY | DELIVERED | CANCELLED | REFUNDED
+  paymentMode   String @default("ONLINE") // ONLINE | COD
+  subtotal      Float
+  tax           Float  @default(0)
+  deliveryFee   Float  @default(0)
+  weatherFee    Float  @default(0)
+  discount      Float  @default(0)
+  loyaltyUsed   Int    @default(0)
+  total         Float
+  couponCode    String?
+  notes         String?
+
+  // Delivery
+  addressLine   String?
+  pincode       String?
+  lat           Float?
+  lng           Float?
+  riderId       String?
+  rider         Rider?  @relation(fields: [riderId], references: [id])
+  riderAssignAttempts Int @default(0)
+  pickedUpAt    String?
+  deliveredAt   String?
+
+  // Booking link (when this is a pre-order tied to a booking)
+  bookingId     String? @unique
+  booking       Booking? @relation("BookingPreOrder")
+
+  // Payment
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  createdAt   String @default("0")
+  updatedAt   String @default("0")
+
+  items   OrderItem[]
+  events  OrderEvent[]
+  reviews Review[]
+}
+
+model OrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        Item   @relation(fields: [itemId], references: [id])
+  qty         Int    @default(1)
+  unitPrice   Float
+  modifiers   String @default("[]") // JSON: [{id,name,priceDelta}]
+  notes       String?
+  lineTotal   Float
+}
+
+model OrderEvent {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus String?
+  toStatus   String
+  actor      String  // SYSTEM | CUSTOMER:<id> | ADMIN:<id> | RIDER:<id>
+  note       String?
+  createdAt  String  @default("0")
+}
+
+// =============================================================================
+// Tables & Bookings
+// =============================================================================
+
+model Table {
+  id          String @id @default(cuid())
+  branchId    String
+  branch      Branch @relation(fields: [branchId], references: [id])
+  number      String
+  capacity    Int
+  zone        String  @default("Indoor")
+  isActive    Boolean @default(true)
+
+  bookings    Booking[]
+
+  @@unique([branchId, number])
+}
+
+model Booking {
+  id            String @id @default(cuid())
+  bookingNumber String @unique
+  userId        String
+  user          User   @relation(fields: [userId], references: [id])
+  branchId      String
+  branch        Branch @relation(fields: [branchId], references: [id])
+  tableId       String
+  table         Table  @relation(fields: [tableId], references: [id])
+  partySize     Int
+  slotStart     String   // ISO timestamp
+  slotEnd       String
+  status        String   @default("CONFIRMED")
+  // PENDING | CONFIRMED | CHECKED_IN | SEATED | COMPLETED | NO_SHOW | CANCELLED
+  depositAmount Float    @default(0)
+  depositPaid   Boolean  @default(false)
+  qrToken       String   @unique
+  occasion      String?
+  specialRequest String?
+  preOrderId    String?  @unique
+  preOrder      Order?   @relation("BookingPreOrder", fields: [preOrderId], references: [id])
+  checkedInAt   String?
+  seatedAt      String?
+  completedAt   String?
+  createdAt     String   @default("0")
+}
+
+// =============================================================================
+// Fleet
+// =============================================================================
+
+model Rider {
+  id            String @id @default(cuid())
+  userId        String @unique
+  user          User   @relation(fields: [userId], references: [id])
+  vehicleType   String @default("BIKE") // BIKE | SCOOTER | BICYCLE
+  vehicleNumber String?
+  licenseUrl    String?
+  ratingAvg     Float  @default(5.0)
+  status        String @default("OFFLINE") // OFFLINE | AVAILABLE | ON_DELIVERY | ON_BREAK
+  lastLat       Float?
+  lastLng       Float?
+  lastPingAt    String?
+
+  shifts  RiderShift[]
+  pings   RiderPing[]
+  orders  Order[]
+}
+
+model RiderShift {
+  id              String @id @default(cuid())
+  riderId         String
+  rider           Rider  @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  startedAt       String @default("0")
+  endedAt         String?
+  ordersCompleted Int    @default(0)
+  cashCollected   Float  @default(0)
+  cashHandedOver  Float?
+  reconciled      Boolean @default(false)
+}
+
+model RiderPing {
+  id         String @id @default(cuid())
+  riderId    String
+  rider      Rider  @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  lat        Float
+  lng        Float
+  recordedAt String @default("0")
+}
+
+// =============================================================================
+// Coupons, reviews, loyalty
+// =============================================================================
+
+model Coupon {
+  id          String @id @default(cuid())
+  code        String @unique
+  description String
+  type        String @default("PERCENT")  // PERCENT | FLAT | FREE_DELIVERY
+  value       Float                       // 10 = 10% or ₹10
+  minOrder    Float  @default(0)
+  maxDiscount Float?
+  validFrom   String
+  validUntil  String
+  firstOrderOnly Boolean @default(false)
+  usageLimit  Int    @default(0)          // 0 = unlimited
+  usedCount   Int    @default(0)
+  isActive    Boolean @default(true)
+}
+
+model Review {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id])
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  itemId    String?
+  item      Item?  @relation(fields: [itemId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt String @default("0")
+}
+
+model LoyaltyLedger {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  delta     Int                       // + earn / - redeem
+  reason    String                    // ORDER_DELIVERED | REDEEMED | ADMIN_ADJUST
+  refOrderId String?
+  createdAt String @default("0")
+}
+
+// =============================================================================
+// Notification log (audit trail of every outbound message)
+// =============================================================================
+
+model NotificationLog {
+  id        String @id @default(cuid())
+  channel   String  // SMS | WHATSAPP | EMAIL | PUSH
+  to        String
+  template  String
+  payload   String  // JSON
+  status    String  @default("SENT") // SENT | FAILED
+  error     String?
+  createdAt String  @default("0")
+}

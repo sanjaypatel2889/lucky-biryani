@@ -1,0 +1,11 @@
+{
+  "name": "Lucky Biryani Rider",
+  "short_name": "LBC Rider",
+  "start_url": "/rider",
+  "display": "standalone",
+  "background_color": "#fff7ed",
+  "theme_color": "#c2410c",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

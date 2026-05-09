@@ -1,0 +1,100 @@
+# Render.com blueprint — Lucky Biryani Centre
+# Deploys: managed Postgres + API (Express) + Web (Next.js).
+# Apply with `render blueprint launch` or by connecting this repo in the Render UI.
+
+databases:
+  - name: lbc-db
+    databaseName: luckybiryani
+    user: lbc
+    plan: starter
+    region: singapore
+
+services:
+  # ---------------------------------------------------------------------------
+  # API — Express + Prisma + WebSocket + in-process workers
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: lbc-api
+    runtime: node
+    plan: starter
+    region: singapore
+    rootDir: .
+    buildCommand: node scripts/use-postgres.js && npm install && npm run build --workspace apps/api && npm run release --workspace apps/api
+    startCommand: npm start --workspace apps/api
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lbc-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENABLE_AUTOMATION
+        value: "true"
+      # Disable the dev OTP backdoor in prod by leaving DEV_OTP unset.
+      # Set FRONTEND_URL to the lbc-web URL once that service exists.
+      - key: FRONTEND_URL
+        sync: false
+      # --- Optional integrations: leave blank to keep stub adapters active ---
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: MSG91_AUTH_KEY
+        sync: false
+      - key: MSG91_DLT_TEMPLATE_ID_OTP
+        sync: false
+      - key: WA_PHONE_NUMBER_ID
+        sync: false
+      - key: WA_ACCESS_TOKEN
+        sync: false
+      - key: WA_VERIFY_TOKEN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_SERVER_KEY
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: SENTRY_DSN_BACKEND
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # Web — Next.js 14 app router (customer + admin + rider sub-paths)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: lbc-web
+    runtime: node
+    plan: starter
+    region: singapore
+    rootDir: .
+    buildCommand: npm install && npm run build --workspace apps/web
+    startCommand: npm start --workspace apps/web
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set after lbc-api deploys (e.g. https://lbc-api.onrender.com).
+      # NEXT_PUBLIC_* values are baked at build time, so changing them
+      # requires a rebuild ("Manual Deploy → Clear build cache & deploy").
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
+      - key: API_PROXY_URL
+        sync: false
+      - key: NEXT_PUBLIC_WS_URL
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN_FRONTEND
+        sync: false

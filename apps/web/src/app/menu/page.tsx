@@ -5,6 +5,7 @@ import { Header } from '@/components/Header';
 import { api } from '@/lib/api';
 import { useCart } from '@/lib/cart-store';
 import { dishPhoto } from '@/lib/photos';
+import { DishImage } from '@/components/DishImage';
 
 type Modifier = { id: string; name: string; priceDelta: number };
 type ModifierGroup = {
@@ -176,9 +177,10 @@ export default function MenuPage() {
                   {list.map((i) => (
                     <div key={i.id} className="card group flex gap-4 overflow-hidden p-4 transition hover:shadow-md hover:shadow-stone-300/50">
                       <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-lg bg-stone-100">
-                        <img
+                        <DishImage
                           src={dishPhoto(i.name, i.categoryName, i.imageUrl)}
-                          alt={i.name}
+                          name={i.name}
+                          category={i.categoryName}
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
                         />
                         {!i.available && (
@@ -281,7 +283,7 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/60 backdrop-blur-sm sm:items-center" onClick={onClose}>
       <div className="card relative w-full max-w-lg overflow-hidden p-0 sm:max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
         <div className="relative h-48 overflow-hidden">
-          <img src={dishPhoto(item.name, item.categoryName)} alt={item.name} className="h-full w-full object-cover" />
+          <DishImage src={dishPhoto(item.name, item.categoryName)} name={item.name} category={item.categoryName} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-stone-950/70 via-transparent to-transparent" />
           <button onClick={onClose} className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-stone-700 shadow hover:bg-white">✕</button>
           <div className="absolute bottom-3 left-4 right-4">

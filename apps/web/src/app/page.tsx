@@ -4,6 +4,7 @@ import { Reveal } from '@/components/Reveal';
 import { Marquee } from '@/components/Marquee';
 import { Counter } from '@/components/Counter';
 import { BranchReviews } from '@/components/BranchReviews';
+import { DishImage } from '@/components/DishImage';
 import { dishPhoto, HERO, STORY, SPICES, RESTAURANT } from '@/lib/photos';
 
 const SERVER_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
@@ -169,7 +170,12 @@ export default async function Home() {
               <Reveal key={it.id} delay={idx * 90}>
                 <Link href="/menu" className="dish-card block">
                   <div className="aspect-[4/5] w-full overflow-hidden">
-                    <img src={dishPhoto(it.name, it.categoryName, it.imageUrl)} alt={it.name} className="h-full w-full object-cover" />
+                    <DishImage
+                      src={dishPhoto(it.name, it.categoryName, it.imageUrl)}
+                      name={it.name}
+                      category={it.categoryName}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-stone-950 via-stone-950/70 to-transparent p-5">
                     <div className="flex items-baseline justify-between gap-3">

@@ -1,50 +1,79 @@
-// Curated stock photo URLs (Unsplash, royalty-free) — keyed by item name or
-// category. In production, replace with a real photo shoot uploaded to S3/R2
-// (doc §10.2). The Item.imageUrl column is already wired to render whatever
-// you put there.
+// Curated stock photo URLs. Mix of:
+//   - TheMealDB (long-stable food image CDN, no key)
+//   - Foodish API (random food images per category, no key)
+//   - Unsplash for hero / marketing shots (verified live)
+//
+// Every consumer renders through <DishImage>, which falls back to a CSS
+// gradient + emoji placeholder if any of these go 404. So even if a CDN
+// dies tomorrow, no card ever renders blank.
+//
+// To replace any of these with a real photoshoot:
+//   1. Upload your image to S3 / R2
+//   2. Set Item.imageUrl in the admin/menu panel
+//   3. dishPhoto() prefers that field over this table
 
-const u = (id: string, w = 1200) =>
+const ms = (id: string) =>
+  `https://www.themealdb.com/images/media/meals/${id}.jpg`;
+const food = (cat: string, n: number) =>
+  `https://foodish-api.com/images/${cat}/${cat}${n}.jpg`;
+const us = (id: string, w = 1400) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
 
-// Hero / marketing
-export const HERO = u('photo-1631452180519-c014fe946bc7', 1800);
-export const STORY = u('photo-1601050690597-df0568f70950', 1400);
-export const SPICES = u('photo-1596797038530-2c107229654b', 1200);
-export const TANDOOR = u('photo-1565557623262-b51c2513a641', 1200);
-export const RESTAURANT = u('photo-1517248135467-4c7edcad34c4', 1600);
+// Hero / marketing — single URL verified live at the time of writing.
+// If these die, the home page hero falls back to the brand gradient via CSS.
+export const HERO       = us('photo-1633945274405-b6c8069047b0', 1800);
+export const STORY      = us('photo-1599043513900-ed6fe01d3833', 1400);
+export const SPICES     = us('photo-1532336414038-cf19250c5757', 1200);
+export const TANDOOR    = us('photo-1631452180519-c014fe946bc7', 1200);
+export const RESTAURANT = us('photo-1592861956120-e524fc739696', 1600);
 
-// Per-item or per-category photos (deterministic, no flicker)
+// Per-dish photo. We lean on TheMealDB for known Indian dishes (these URLs
+// have been stable for years) and Foodish for a couple of categories.
 const ITEM_PHOTOS: Record<string, string> = {
-  'Hyderabadi Chicken Biryani': u('photo-1631452180519-c014fe946bc7'),
-  'Mutton Dum Biryani':         u('photo-1633945274405-b6c8069047b0'),
-  'Veg Biryani':                u('photo-1589302168068-964664d93dc0'),
-  'Prawn Biryani':              u('photo-1604908176997-125f25cc6f3d'),
-  'Chicken 65':                 u('photo-1626777553635-3e4c0e29ab8d'),
-  'Paneer Tikka':               u('photo-1567188040759-fb8a883dc6d8'),
-  'Veg Manchurian':             u('photo-1626804475297-41608ea09aeb'),
-  'Butter Chicken':             u('photo-1603894584373-5ac82b2ae398'),
-  'Paneer Butter Masala':       u('photo-1631452180775-d9a91a44e6f4'),
-  'Dal Makhani':                u('photo-1626777553635-3e4c0e29ab8d'),
-  'Butter Naan':                u('photo-1601050690597-df0568f70950'),
-  'Garlic Naan':                u('photo-1626501280073-3a87b7c2e7e7'),
-  'Tandoori Roti':              u('photo-1565557623262-b51c2513a641'),
-  'Double ka Meetha':           u('photo-1565557623262-b51c2513a641'),
-  'Gulab Jamun':                u('photo-1601050690597-df0568f70950'),
-  'Qubani ka Meetha':           u('photo-1551024601-bec78aea704b'),
-  'Mango Lassi':                u('photo-1571805341302-f857702a8568'),
-  'Masala Chai':                u('photo-1576092768241-dec231879fc3'),
-  'Bottled Soft Drink':         u('photo-1622483767028-3f66f32aef97'),
+  'Hyderabadi Chicken Biryani': ms('xrttsx1487339558'),       // Chicken Biryani
+  'Mutton Dum Biryani':         food('biryani', 2),
+  'Veg Biryani':                food('biryani', 4),
+  'Prawn Biryani':              food('biryani', 5),
+
+  'Chicken 65':                 ms('qptpvt1487339892'),       // Tandoori Chicken
+  'Paneer Tikka':               food('butter-chicken', 3),    // similar tandoor look
+  'Veg Manchurian':             food('rice', 2),
+
+  'Butter Chicken':             food('butter-chicken', 1),
+  'Paneer Butter Masala':       food('butter-chicken', 4),
+  'Dal Makhani':                food('butter-chicken', 5),
+
+  'Butter Naan':                food('butter-chicken', 2),
+  'Garlic Naan':                food('butter-chicken', 3),
+  'Tandoori Roti':              food('butter-chicken', 5),
+
+  // For these we rely on the placeholder — TheMealDB/Foodish don't have great
+  // matches and the gradient + emoji looks intentional.
+  'Double ka Meetha':           '',
+  'Gulab Jamun':                '',
+  'Qubani ka Meetha':           '',
+
+  'Mango Lassi':                '',
+  'Masala Chai':                '',
+  'Bottled Soft Drink':         '',
 };
 
 const CATEGORY_PHOTOS: Record<string, string> = {
-  Biryani:    u('photo-1631452180519-c014fe946bc7'),
-  Appetisers: u('photo-1626777553635-3e4c0e29ab8d'),
-  Curries:    u('photo-1603894584373-5ac82b2ae398'),
-  Breads:     u('photo-1601050690597-df0568f70950'),
-  Desserts:   u('photo-1551024601-bec78aea704b'),
-  Beverages:  u('photo-1571805341302-f857702a8568'),
+  Biryani:    food('biryani', 1),
+  Appetisers: food('butter-chicken', 3),
+  Curries:    food('butter-chicken', 1),
+  Breads:     food('butter-chicken', 2),
+  Desserts:   '',
+  Beverages:  '',
 };
 
 export function dishPhoto(name: string, category?: string, fallback?: string | null) {
-  return fallback || ITEM_PHOTOS[name] || (category && CATEGORY_PHOTOS[category]) || HERO;
+  if (fallback) return fallback;
+  const direct = ITEM_PHOTOS[name];
+  if (direct) return direct;
+  if (category) {
+    const c = CATEGORY_PHOTOS[category];
+    if (c) return c;
+  }
+  return ''; // empty string triggers the <DishImage> gradient placeholder
 }

@@ -5,6 +5,9 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'www.themealdb.com' },
+      { protocol: 'https', hostname: 'foodish-api.com' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org' },
     ],
   },
   async rewrites() {

@@ -2,6 +2,10 @@
 
 // Google Maps live tracking — loads the Maps JS API on demand. Gracefully
 // degrades to a coordinate readout when no key is configured.
+//
+// Note: we cast through `any` rather than importing @types/google.maps so the
+// Vercel build doesn't require an extra dep just to enable this optional
+// feature. The Maps SDK is loaded at runtime only when the key is set.
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -13,12 +17,12 @@ type Props = {
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
-function loadGoogleMaps(): Promise<typeof google> {
+function loadGoogleMaps(): Promise<any> {
   // Singleton loader — re-uses the script tag on subsequent navigations
   const w = window as any;
   if (w.google?.maps) return Promise.resolve(w.google);
   if (w.__lbcMapsPromise) return w.__lbcMapsPromise;
-  w.__lbcMapsPromise = new Promise<typeof google>((resolve, reject) => {
+  w.__lbcMapsPromise = new Promise<any>((resolve, reject) => {
     const s = document.createElement('script');
     s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&v=weekly`;
     s.async = true;

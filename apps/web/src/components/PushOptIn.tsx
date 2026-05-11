@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-store';
 
 export function PushOptIn() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [status, setStatus] = useState<'idle' | 'unsupported' | 'subscribed' | 'denied' | 'available' | 'no_key'>('idle');
 
   useEffect(() => {
@@ -29,6 +29,7 @@ export function PushOptIn() {
   }, []);
 
   async function enable() {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('lbc_token') : null;
     if (!user || !token) return;
     try {
       const keyRes = await fetch('/api/v1/push/public-key').then((r) => r.json());

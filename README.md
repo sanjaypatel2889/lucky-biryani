@@ -34,16 +34,16 @@ Open <http://localhost:3000>.
 
 ### Demo logins
 
-OTP is always **`000000`** in dev mode (set via `DEV_OTP`).
+The login flow is **email-OTP** (Brevo / Resend / dev console). OTP is random each time. In dev with no provider keys configured, the OTP is logged to the API console and the `NotificationLog` table — `scripts/get-otp.ts` reads it for automated tests.
 
-| Role | Phone | Where to land |
+| Role | Email | Where to land |
 |---|---|---|
-| Customer | `+919999000003` | `/menu`, `/book`, `/orders` |
-| Owner | `+919999000001` | `/admin` |
-| Manager (admin) | `+919999000002` | `/admin` |
-| Rider 1 | `+919999000010` | `/rider` |
-| Rider 2 | `+919999000011` | `/rider` |
-| Rider 3 | `+919999000012` | `/rider` |
+| Customer | `customer@lucky.test` | `/menu`, `/book`, `/orders` |
+| Owner | `owner@lucky.test` | `/admin` |
+| Manager (admin) | `admin@lucky.test` | `/admin` |
+| Rider 1 | `rider1@lucky.test` | `/rider` |
+| Rider 2 | `rider2@lucky.test` | `/rider` |
+| Rider 3 | `rider3@lucky.test` | `/rider` |
 
 ### Demo coupons
 

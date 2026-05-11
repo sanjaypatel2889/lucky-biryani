@@ -8,6 +8,10 @@ import { payments } from '../services/payments';
 import { transition } from '../services/orders';
 import { bus } from '../realtime';
 
+function randomOtp() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 export const orderRouter = Router();
 
 const cartSchema = z.array(
@@ -51,11 +55,20 @@ orderRouter.post('/', requireAuth(), async (req, res) => {
       couponCode: z.string().optional(),
       loyaltyPointsToUse: z.number().int().nonnegative().optional(),
       notes: z.string().optional(),
+      scheduledFor: z.string().datetime().optional(), // ISO timestamp
     })
     .safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'invalid_body', detail: body.error.issues });
   const b = body.data;
   if (b.type === 'DELIVERY' && !b.address) return res.status(400).json({ error: 'address_required' });
+
+  // Scheduled-for must be in the future and within open hours window
+  if (b.scheduledFor) {
+    const t = new Date(b.scheduledFor).getTime();
+    if (Number.isNaN(t) || t < Date.now() + 15 * 60_000) {
+      return res.status(400).json({ error: 'invalid_schedule', detail: 'schedule must be at least 15 min in the future' });
+    }
+  }
 
   const q = await buildQuote({
     branchId: b.branchId, type: b.type, cart: b.cart,
@@ -96,6 +109,8 @@ orderRouter.post('/', requireAuth(), async (req, res) => {
       pincode: b.address?.pincode,
       lat: b.address?.lat,
       lng: b.address?.lng,
+      scheduledFor: b.scheduledFor ?? null,
+      deliveryOtp: b.type === 'DELIVERY' ? randomOtp() : null,
       createdAt: now(),
       updatedAt: now(),
       items: {
@@ -208,6 +223,19 @@ orderRouter.post('/:id/cancel', requireAuth(), async (req, res) => {
     return res.status(400).json({ error: 'too_late_to_cancel' });
   const updated = await transition(o.id, 'CANCELLED', `CUSTOMER:${req.user!.id}`, 'self_cancel');
   res.json({ order: updated });
+});
+
+// Tip the rider (any time before / after delivery)
+orderRouter.post('/:id/tip', requireAuth(), async (req, res) => {
+  const body = z.object({ amount: z.number().int().min(0).max(2000) }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: 'invalid_body' });
+  const o = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!o || o.userId !== req.user!.id) return res.status(404).json({ error: 'not_found' });
+  const updated = await prisma.order.update({
+    where: { id: o.id },
+    data: { riderTip: body.data.amount, updatedAt: now() },
+  });
+  res.json({ order: { id: updated.id, riderTip: updated.riderTip } });
 });
 
 orderRouter.post('/:id/reorder', requireAuth(), async (req, res) => {

@@ -27,6 +27,11 @@ model User {
   loyaltyPoints Int  @default(0)
   noShowCount   Int  @default(0)
   flagged       Boolean @default(false)
+  dob           String?  // ISO YYYY-MM-DD for birthday rewards
+  referralCode  String?  @unique // 6-8 char shareable code
+  referredByUserId String?
+  membershipTier String  @default("FREE") // FREE | CLUB
+  membershipUntil String?
   createdAt String   @default("0")
 
   addresses Address[]
@@ -35,6 +40,7 @@ model User {
   reviews   Review[]
   rider     Rider?
   ledger    LoyaltyLedger[]
+  pushSubs  PushSubscription[]
 }
 
 model Address {
@@ -104,6 +110,11 @@ model Item {
   availDelivery Boolean @default(true)
   availDinein   Boolean @default(true)
   isActive    Boolean @default(true)
+  // Dietary metadata for filters / allergen surfacing
+  allergens   String   @default("[]") // JSON string[] e.g. ["milk","gluten"]
+  calories    Int?
+  isBestseller Boolean @default(false)
+  isTrending   Boolean @default(false)
 
   modifierGroups ItemModifierGroup[]
   orderItems     OrderItem[]
@@ -194,6 +205,10 @@ model Order {
   riderAssignAttempts Int @default(0)
   pickedUpAt    String?
   deliveredAt   String?
+  deliveryOtp   String? // 4-digit code for COD / verified delivery
+  deliveryProofUrl String? // photo proof after delivered
+  scheduledFor  String? // ISO timestamp; null = ASAP
+  riderTip      Float   @default(0)
 
   // Booking link (when this is a pre-order tied to a booking)
   bookingId     String? @unique
@@ -354,6 +369,19 @@ model Review {
   item      Item?  @relation(fields: [itemId], references: [id])
   rating    Int
   comment   String?
+  ownerReply String?
+  ownerReplyAt String?
+  createdAt String @default("0")
+}
+
+model PushSubscription {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String @unique
+  p256dh    String
+  auth      String
+  ua        String?
   createdAt String @default("0")
 }
 

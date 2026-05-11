@@ -81,8 +81,11 @@ export default function RiderHome() {
     setOffer(null);
     load();
   }
-  async function transition(id: string, action: 'picked-up' | 'delivered') {
-    await api(`/api/v1/rider/orders/${id}/${action}`, { method: 'POST' });
+  async function transition(id: string, action: 'picked-up' | 'delivered', body?: any) {
+    await api(`/api/v1/rider/orders/${id}/${action}`, {
+      method: 'POST',
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
     load();
   }
 
@@ -144,12 +147,55 @@ export default function RiderHome() {
             </button>
           )}
           {o.status === 'OUT_FOR_DELIVERY' && (
-            <button className="btn-primary mt-2 w-full" onClick={() => transition(o.id, 'delivered')}>
-              Mark delivered
-            </button>
+            <DeliverButton order={o} onDeliver={(payload) => transition(o.id, 'delivered', payload)} />
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function DeliverButton({ order, onDeliver }: { order: any; onDeliver: (b: any) => void }) {
+  const [otp, setOtp] = useState('');
+  const [proof, setProof] = useState<string>('');
+  const [err, setErr] = useState<string | null>(null);
+  const needsOtp = !!order.deliveryOtp;
+  async function go() {
+    setErr(null);
+    if (needsOtp && otp.trim().length !== 4) {
+      setErr('Ask the customer for the 4-digit code');
+      return;
+    }
+    try {
+      await onDeliver({ otp: otp.trim() || undefined, proofUrl: proof || undefined });
+    } catch (e: any) {
+      setErr(e?.detail?.error === 'bad_otp' ? 'Wrong code — please ask again' : 'Failed to mark delivered');
+    }
+  }
+  function snap() {
+    // Lightweight "photo proof" — in dev we just stash a data URL placeholder.
+    // Real impl would presigned-upload to S3/R2 and store the resulting URL.
+    setProof(`proof:order:${order.id}:${Date.now()}`);
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      {needsOtp && (
+        <input
+          inputMode="numeric"
+          maxLength={4}
+          value={otp}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          placeholder="4-digit code from customer"
+          className="input text-center text-lg tracking-[6px]"
+        />
+      )}
+      <div className="flex gap-2">
+        <button type="button" onClick={snap} className={`flex-1 rounded-md border px-3 py-1.5 text-xs ${proof ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-stone-200 bg-white text-stone-600'}`}>
+          {proof ? '✓ Photo captured' : '📷 Add photo proof'}
+        </button>
+      </div>
+      {err && <div className="text-xs text-rose-600">{err}</div>}
+      <button className="btn-primary w-full" onClick={go}>Mark delivered</button>
     </div>
   );
 }

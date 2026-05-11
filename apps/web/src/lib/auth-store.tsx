@@ -10,12 +10,15 @@ type User = {
   name?: string | null;
   role: string;
   loyaltyPoints?: number;
+  referralCode?: string | null;
+  dob?: string | null;
+  membershipTier?: string;
 };
 type Ctx = {
   user: User | null;
   loading: boolean;
   loginOTP: (email: string) => Promise<{ ok: true }>;
-  verifyOTP: (email: string, otp: string, name?: string) => Promise<User>;
+  verifyOTP: (email: string, otp: string, name?: string, referralCode?: string) => Promise<User>;
   logout: () => void;
   refresh: () => Promise<void>;
 };
@@ -44,9 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async loginOTP(email) {
       return api('/api/v1/auth/otp/send', { method: 'POST', body: JSON.stringify({ email }) });
     },
-    async verifyOTP(email, otp, name) {
+    async verifyOTP(email, otp, name, referralCode) {
       const r = await api<{ token: string; user: User }>('/api/v1/auth/otp/verify', {
-        method: 'POST', body: JSON.stringify({ email, otp, name }),
+        method: 'POST', body: JSON.stringify({ email, otp, name, referralCode }),
       });
       localStorage.setItem('lbc_token', r.token);
       setUser(r.user);

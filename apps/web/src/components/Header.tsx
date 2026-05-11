@@ -43,6 +43,7 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
           <Link href="/menu"   className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Menu</Link>
           <Link href="/book"   className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Book a table</Link>
           <Link href="/orders" className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>My orders</Link>
+          <Link href="/refer"  className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Refer & earn</Link>
         </nav>
 
         <div className="ml-auto flex items-center gap-2 md:gap-3">
@@ -60,6 +61,11 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
           {user ? (
             <div className="hidden items-center gap-2 md:flex">
               <span className="text-sm text-stone-600">Hi, {user.name?.split(' ')[0] ?? 'there'}</span>
+              {typeof user.loyaltyPoints === 'number' && user.loyaltyPoints > 0 && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Loyalty points">
+                  ★ {user.loyaltyPoints}
+                </span>
+              )}
               <button onClick={logout} className="btn-ghost text-sm">Logout</button>
             </div>
           ) : (
@@ -84,6 +90,7 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
             <Link href="/menu"   className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Menu</Link>
             <Link href="/book"   className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Book a table</Link>
             <Link href="/orders" className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>My orders</Link>
+            <Link href="/refer"  className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Refer & earn</Link>
             {user && <button onClick={logout} className="rounded-md px-3 py-2.5 text-left text-sm hover:bg-stone-100">Logout</button>}
           </nav>
         </div>

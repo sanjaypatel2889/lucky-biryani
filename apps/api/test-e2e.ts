@@ -1,5 +1,5 @@
 // End-to-end smoke test. Drives the API the way a real client would:
-//   1. Customer signs in via OTP
+//   1. Customer signs in via email OTP (random; read from NotificationLog)
 //   2. Browses menu, places a delivery order
 //   3. Pays online (stub)
 //   4. Admin walks order through KDS states
@@ -8,7 +8,10 @@
 //   7. Customer creates a table booking
 //   8. Host scans QR, customer is seated
 
+import { PrismaClient } from '@prisma/client';
+
 const BASE = process.env.BASE ?? 'http://localhost:4000';
+const prisma = new PrismaClient();
 
 async function call<T = any>(path: string, body?: any, token?: string, method = body ? 'POST' : 'GET'): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
@@ -26,9 +29,25 @@ async function call<T = any>(path: string, body?: any, token?: string, method = 
   return r.json();
 }
 
-async function login(phone: string, name?: string) {
-  await call('/api/v1/auth/otp/send', { phone });
-  const r = await call<any>('/api/v1/auth/otp/verify', { phone, otp: '000000', name });
+async function readLatestOtp(email: string): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const row = await prisma.notificationLog.findFirst({
+      where: { channel: 'EMAIL', to: email },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (row) {
+      const m = String(row.payload).match(/(\d{6})/);
+      if (m) return m[1];
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  throw new Error(`could not read OTP for ${email}`);
+}
+
+async function login(email: string, name?: string) {
+  await call('/api/v1/auth/otp/send', { email });
+  const code = await readLatestOtp(email);
+  const r = await call<any>('/api/v1/auth/otp/verify', { email, otp: code, name });
   return { token: r.token as string, user: r.user };
 }
 
@@ -37,7 +56,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   step('1. customer login');
-  const cust = await login('+919999000003', 'Demo Customer');
+  const cust = await login('customer@lucky.test', 'Demo Customer');
   console.log('  user:', cust.user.name);
 
   step('2. browse menu');
@@ -80,7 +99,7 @@ async function main() {
   console.log('  status:', paid.order.status);
 
   step('6. admin walks through KDS states');
-  const admin = await login('+919999000002');
+  const admin = await login('admin@lucky.test');
   for (const to of ['ACCEPTED', 'PREPARING', 'READY']) {
     const r = await call<any>(`/api/v1/admin/orders/${placed.order.id}/transition`, { to }, admin.token);
     console.log('  →', r.order.status);
@@ -88,7 +107,7 @@ async function main() {
 
   step('7. wait for auto-assignment, then rider accepts');
   // start a rider shift first if not already
-  const rider = await login('+919999000010');
+  const rider = await login('rider1@lucky.test');
   await call('/api/v1/rider/shifts/start', {}, rider.token).catch(() => {});
   // set rider position close to branch
   await call('/api/v1/rider/ping', { lat: 17.385, lng: 78.4867 }, rider.token);
@@ -101,9 +120,9 @@ async function main() {
     console.log('  rider assigned:', detail.order.rider?.user?.name ?? detail.order.riderId);
     // Whoever got the offer accepts. We need to discover who.
     // Easiest: call accept from each candidate; non-assignees will 403.
-    for (const phone of ['+919999000010', '+919999000011', '+919999000012']) {
+    for (const email of ['rider1@lucky.test', 'rider2@lucky.test', 'rider3@lucky.test']) {
       try {
-        const r = await login(phone);
+        const r = await login(email);
         const me = await call<any>('/api/v1/rider/me', undefined, r.token);
         if (me.rider.id === detail.order.riderId) {
           await call(`/api/v1/rider/orders/${placed.order.id}/accept`, {}, r.token);

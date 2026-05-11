@@ -75,8 +75,6 @@ services:
         sync: false
       - key: WA_VERIFY_TOKEN
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
       - key: GOOGLE_MAPS_SERVER_KEY
         sync: false
       - key: S3_ACCESS_KEY
@@ -89,3 +87,17 @@ services:
         sync: false
       - key: SENTRY_DSN_BACKEND
         sync: false
+      # --- AI chatbot (Lucky AI). Without a key the chatbot uses rule-based
+      # fallback so the UI keeps working.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+      # --- Web push (VAPID). Generate once with:
+      #     npx web-push generate-vapid-keys
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_CONTACT
+        value: mailto:hello@luckybiryani.in

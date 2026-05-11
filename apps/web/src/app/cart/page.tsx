@@ -23,6 +23,8 @@ export default function CartPage() {
   const [paymentMode, setPaymentMode] = useState<'ONLINE' | 'COD'>('ONLINE');
   const [coupon, setCoupon] = useState('');
   const [points, setPoints] = useState(0);
+  const [scheduleMode, setScheduleMode] = useState<'now' | 'later'>('now');
+  const [scheduledFor, setScheduledFor] = useState<string>('');
   const [address, setAddress] = useState({
     line1: '12-3-456, Road No 1', line2: 'Jubilee Hills',
     pincode: '500033', lat: 17.4239, lng: 78.4738,
@@ -57,6 +59,9 @@ export default function CartPage() {
     setBusy(true); setErr('');
     try {
       const cart = lines.map((l) => ({ itemId: l.itemId, qty: l.qty, modifierIds: l.modifierIds, notes: l.notes }));
+      const sched = scheduleMode === 'later' && scheduledFor
+        ? new Date(scheduledFor).toISOString()
+        : undefined;
       const r = await api<{ order: any; razorpay: any }>('/api/v1/orders', {
         method: 'POST',
         body: JSON.stringify({
@@ -64,6 +69,7 @@ export default function CartPage() {
           address: type === 'DELIVERY' ? address : undefined,
           couponCode: coupon || undefined,
           loyaltyPointsToUse: points,
+          scheduledFor: sched,
         }),
       });
       if (paymentMode === 'ONLINE') {
@@ -139,6 +145,28 @@ export default function CartPage() {
                   <input className="input" placeholder="Pincode" value={address.pincode} onChange={(e) => setAddress({...address, pincode: e.target.value})} />
                   <p className="text-xs text-slate-400">Lat/lng saved from current address: {address.lat.toFixed(4)}, {address.lng.toFixed(4)}</p>
                 </div>
+              )}
+            </div>
+
+            <div className="card p-4">
+              <h3 className="font-medium">When?</h3>
+              <div className="mt-2 flex gap-2">
+                {(['now','later'] as const).map((m) => (
+                  <button key={m}
+                    onClick={() => setScheduleMode(m)}
+                    className={`btn ${scheduleMode === m ? 'btn-primary' : 'btn-secondary'} flex-1`}>
+                    {m === 'now' ? 'ASAP (~30 min)' : 'Schedule'}
+                  </button>
+                ))}
+              </div>
+              {scheduleMode === 'later' && (
+                <input
+                  type="datetime-local"
+                  className="input mt-3"
+                  value={scheduledFor}
+                  min={new Date(Date.now() + 20 * 60_000).toISOString().slice(0, 16)}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                />
               )}
             </div>
 

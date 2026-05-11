@@ -1,149 +1,187 @@
-# Deploying Lucky Biryani Centre to Render.com
+# Deploying Lucky Biryani Centre
 
-This repo ships with a `render.yaml` blueprint that provisions everything needed to run the app: a managed Postgres database, the Express API, and the Next.js web service. Follow the steps below to go from a fresh clone to a live URL.
+This repo deploys as a **free 3-host hybrid**: Neon Postgres + Render API + Vercel web. Total cost: **₹0/month** for low traffic, ~$5–7/mo if you want the API to stop sleeping.
 
----
-
-## What gets deployed
-
-| Resource | Render type | Plan in `render.yaml` | Purpose |
-|---|---|---|---|
-| `lbc-db` | Postgres database | `starter` | Single source of truth — replaces the local SQLite file |
-| `lbc-api` | Web service (Node) | `starter` (Singapore region) | Express API on `/api/v1/*`, WebSocket on `/ws`, in-process workers |
-| `lbc-web` | Web service (Node) | `starter` (Singapore region) | Next.js 14 app — customer site, `/admin`, `/rider` |
-
-**Cost (as of the time this guide was written):** roughly **$7/month per service** (`starter` plan) plus Postgres `starter` (~$7/mo). Total ≈ **$21/mo**. Adjust plans in `render.yaml` or the Render UI to fit your budget — see "Cost knobs" below.
-
-> **Why not the free tier?** Free Render web services sleep after 15 minutes of inactivity. The API runs in-process workers (auto-assignment, no-show release, demand promos, review requests). If the API sleeps, those workers stop firing. Free Postgres also expires after 90 days. For a real restaurant, neither is acceptable.
+```
+        ┌──────────────────┐         ┌────────────────────┐
+        │  Vercel (web)    │ ──────▶ │  Render (lbc-api)  │
+        │  apps/web        │  HTTPS  │  apps/api          │
+        │  Next.js 14      │  + WSS  │  Express + WS      │
+        └────────┬─────────┘         └─────────┬──────────┘
+                 │                             │
+                 │                             ▼
+                 │                   ┌─────────────────────┐
+                 └──────────────────▶│   Neon Postgres      │
+                                     │   (free 3 GB)        │
+                                     └─────────────────────┘
+```
 
 ---
 
 ## Prerequisites you must do yourself
 
-These steps cannot be automated for you:
+These can't be automated:
 
-1. **Create a Render account** at https://render.com and add a payment method.
-2. **Push this repo to GitHub (or GitLab/Bitbucket).** Render deploys from a connected git repo. The init step below sets up the local repo; you push it.
-3. **Decide whether to use real third-party services** (Razorpay, MSG91, WhatsApp Cloud, Resend, Google Maps, Sentry, S3/R2). The app boots without any of these — every adapter falls back to a working stub. You can deploy first, then add keys later via the Render UI.
+1. **Push the repo to GitHub** (Render and Vercel deploy from a git remote).
+2. **Create three accounts** — all free:
+   - [neon.tech](https://neon.tech) — for the Postgres DB
+   - [render.com](https://render.com) — for the API
+   - [vercel.com](https://vercel.com) — for the Next.js web
 
 ---
 
-## One-time deploy steps
+## Step 1 — Provision the database (Neon)
 
-### 1. Push the repo to GitHub
+1. Sign up at https://neon.tech.
+2. Create a project named `lucky-biryani`. Region: **Singapore** (closest to most Indian users).
+3. Once provisioned, open **Connection Details → Connection string (pooled)** and copy it. It looks like:
+   ```
+   postgresql://USER:PASSWORD@ep-foo-bar-12345.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+4. Save this — you'll paste it into Render in the next step.
 
-```bash
-# from the repo root (d:\restruant)
-git init
-git add .
-git commit -m "Initial commit: Lucky Biryani — ready for Render"
-git branch -M main
-# Create an empty repo on GitHub first, then:
-git remote add origin https://github.com/<your-username>/lucky-biryani.git
-git push -u origin main
-```
+---
 
-### 2. Create the Render Blueprint
+## Step 2 — Deploy the API (Render)
 
-1. Log in to https://dashboard.render.com.
-2. Click **New** → **Blueprint**.
-3. Connect the GitHub repo you just pushed.
-4. Render reads `render.yaml` and shows a preview of the three resources (`lbc-db`, `lbc-api`, `lbc-web`). Click **Apply**.
-5. Render provisions the database first, then runs builds for both services in parallel. First build typically takes 5–8 minutes.
-
-### 3. Wire the cross-service URLs
-
-After the first deploy, Render generates two URLs (e.g. `https://lbc-api.onrender.com` and `https://lbc-web.onrender.com`). Render does not auto-fill them because the values are interdependent — set them manually now.
-
-**On the `lbc-api` service → Environment:**
+1. Push this repo to GitHub.
+2. In Render, click **New → Blueprint** and connect your GitHub repo.
+3. Render reads [`render.yaml`](render.yaml) and offers to create the `lbc-api` web service. Click **Apply**.
+4. On the **Environment** tab of the new service, fill in:
 
 | Variable | Value |
 |---|---|
-| `FRONTEND_URL` | `https://lbc-web.onrender.com` (your web URL) |
+| `DATABASE_URL` | (paste the Neon connection string from Step 1) |
+| `FRONTEND_URL` | _Leave blank for now — fill after Step 3._ |
+| `JWT_SECRET` | _Render auto-generates a strong value (`generateValue: true` in the blueprint)._ |
 
-**On the `lbc-web` service → Environment:**
+**Optional integrations** (all skipped means stubs / fallbacks stay active):
+
+| Feature | Variable(s) | Where to get the key |
+|---|---|---|
+| Email OTP delivery | `BREVO_API_KEY` + `BREVO_SENDER_EMAIL` | app.brevo.com → SMTP & API → API Keys |
+| Lucky AI chatbot (live mode) | `ANTHROPIC_API_KEY` | console.anthropic.com |
+| Web push notifications | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | run locally: `npx web-push generate-vapid-keys` |
+| Real payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | razorpay.com dashboard |
+| SMS OTP for India | `FAST2SMS_API_KEY` | fast2sms.com → Dev API |
+| WhatsApp notifications | `WA_PHONE_NUMBER_ID`, `WA_ACCESS_TOKEN`, `WA_VERIFY_TOKEN` | Meta Business → WhatsApp → API setup |
+
+5. The build runs:
+   - `node scripts/use-postgres.js` (flips Prisma provider from sqlite → postgresql)
+   - `npm install` → `npm run build --workspace apps/api`
+   - `npm run release --workspace apps/api` (`prisma db push --accept-data-loss && tsx prisma/seed.ts`)
+6. When the service is **live**, copy its URL — e.g. `https://lbc-api.onrender.com`.
+
+---
+
+## Step 3 — Deploy the web (Vercel)
+
+1. In Vercel, click **Add New → Project** and import the same GitHub repo.
+2. On the configuration screen:
+   - **Root Directory**: `apps/web`
+   - **Framework Preset**: Next.js _(should auto-detect)_
+   - **Build Command**: leave default (`next build`)
+3. **Environment Variables** — set these before clicking Deploy:
 
 | Variable | Value |
 |---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | `https://lbc-api.onrender.com` |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://lbc-api.onrender.com` (your Render API URL) |
 | `API_PROXY_URL` | `https://lbc-api.onrender.com` |
 | `NEXT_PUBLIC_WS_URL` | `wss://lbc-api.onrender.com` (note **wss**, not https) |
+| `NEXT_PUBLIC_SITE_URL` | (your Vercel URL, set after first deploy) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | optional — Google Cloud Console → Maps JavaScript API |
 
-Click **Save Changes** on each service. Render will redeploy automatically. `NEXT_PUBLIC_*` variables bake into the Next.js bundle at build time, so the web service rebuilds itself.
-
-### 4. Verify
-
-- Open `https://lbc-api.onrender.com/api/v1/health` → should return `{ ok: true, at: "..." }`.
-- Open `https://lbc-web.onrender.com/` → home page loads.
-- Open `https://lbc-web.onrender.com/menu` → menu items appear (the `release` step seeded the DB on first deploy).
-- Try logging in with phone `+919999000003`, OTP `000000` (dev OTP works only when `DEV_OTP` is set; in this blueprint it is **deliberately unset** in prod, so set it temporarily on the API service if you want demo logins to work).
+4. Click **Deploy**. First build takes ~2 minutes.
+5. Copy the deployed URL (e.g. `https://lucky-biryani.vercel.app`).
+6. Add it to `NEXT_PUBLIC_SITE_URL` and redeploy once. (Needed for OG previews & manifest URLs.)
 
 ---
 
-## Adding real third-party keys
+## Step 4 — Wire the cross-service URL
 
-All integrations are stubbed by default. To switch to live providers, set the corresponding env vars on `lbc-api` (or `lbc-web` for `NEXT_PUBLIC_*`). The adapter code (`apps/api/src/services/{notify,payments}.ts` and `apps/api/src/config.ts`) auto-detects presence of the key and switches behavior — no code change needed.
+Open the **Render** service → Environment, set:
 
-| Feature | Vars to set | Where |
+| Variable | Value |
+|---|---|
+| `FRONTEND_URL` | `https://lucky-biryani.vercel.app` (your Vercel URL) |
+
+Click **Save Changes**. Render redeploys automatically. This unblocks CORS for browser → API calls.
+
+---
+
+## Step 5 — Verify
+
+| Check | Expected |
+|---|---|
+| `https://<api>.onrender.com/api/v1/health` | `{ "ok": true, "at": "..." }` |
+| `https://<api>.onrender.com/api/v1/ai/status` | `{ "enabled": true, "mode": "live" }` if `ANTHROPIC_API_KEY` is set, else `"fallback"` |
+| `https://<web>.vercel.app/` | Home page loads, Lucky AI button visible bottom-right |
+| `https://<web>.vercel.app/menu` | 19 menu items rendered |
+| `https://<web>.vercel.app/admin` | Loads (login required) |
+
+### Demo logins on prod
+
+The seed creates these users with stable emails. OTP is random + emailed; either set `BREVO_API_KEY` to receive real OTPs, or set `DEV_OTP=000000` on the Render service for demos.
+
+| Role | Email | Where it lands |
 |---|---|---|
-| Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | `lbc-api` |
-| SMS / OTP via MSG91 | `MSG91_AUTH_KEY`, `MSG91_DLT_TEMPLATE_ID_OTP` | `lbc-api` |
-| WhatsApp Cloud | `WA_PHONE_NUMBER_ID`, `WA_ACCESS_TOKEN`, `WA_VERIFY_TOKEN` | `lbc-api` |
-| Email (Resend) | `RESEND_API_KEY` | `lbc-api` |
-| Google Maps server-side | `GOOGLE_MAPS_SERVER_KEY` | `lbc-api` |
-| Google Maps client-side | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | `lbc-web` (rebuild required) |
-| S3 / Cloudflare R2 image storage | `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` | `lbc-api` |
-| Sentry (backend) | `SENTRY_DSN_BACKEND` | `lbc-api` |
-| Sentry (frontend) | `NEXT_PUBLIC_SENTRY_DSN_FRONTEND` | `lbc-web` (rebuild required) |
+| Owner | `owner@lucky.test` | `/admin` |
+| Manager | `admin@lucky.test` | `/admin` |
+| Customer | `customer@lucky.test` | `/menu` |
+| Rider 1 | `rider1@lucky.test` | `/rider` |
 
-For Razorpay webhooks, set the webhook URL in the Razorpay dashboard to:
-```
-https://lbc-api.onrender.com/api/v1/webhooks/razorpay
-```
+---
+
+## Free-tier caveats
+
+- **Render free** services **sleep after 15 min idle** — cold start is ~30 seconds, and background workers (auto-assign, no-show release, demand promos) freeze while asleep. For a real restaurant, upgrade `lbc-api` to **Starter ($7/mo)**.
+- **Vercel free** has zero sleep, but only 100 GB bandwidth/month.
+- **Neon free** is 3 GB storage, unlimited rows. No expiry like Render's free Postgres.
+- **No backups** on Neon free — set up `pg_dump` to S3/R2 once you have real customer data.
+
+---
+
+## Adding HTTPS-only env vars after the fact
+
+If you flipped on a feature flag (say `ANTHROPIC_API_KEY`) after deploy:
+
+- **Render**: Service → Environment → Add → save → service redeploys automatically.
+- **Vercel**: Project → Settings → Environment Variables → add → click **Redeploy** on the latest deployment (Vercel doesn't auto-redeploy on env changes).
+
+`NEXT_PUBLIC_*` variables bake into the Next.js bundle at build time, so they always require a redeploy on Vercel.
+
+---
+
+## Custom domain
+
+1. Buy domain (Namecheap / Hostinger / Cloudflare).
+2. In Vercel → Project → Domains → add `luckybiryani.in`.
+3. Vercel shows the DNS records needed (A or CNAME). Add them at your registrar.
+4. In Render → Service → Settings → Custom Domains → add `api.luckybiryani.in`.
+5. Update env vars to use the new domains:
+   - Render `FRONTEND_URL` = `https://luckybiryani.in`
+   - Vercel `NEXT_PUBLIC_API_BASE_URL` = `https://api.luckybiryani.in`
+   - Vercel `NEXT_PUBLIC_WS_URL` = `wss://api.luckybiryani.in`
 
 ---
 
 ## How redeploys work
 
-- Push to `main` → Render auto-deploys both services (`autoDeploy: true` in `render.yaml`).
-- The API runs `npm run release` on every deploy. That executes `prisma db push --accept-data-loss && tsx prisma/seed.ts`.
-  - `prisma db push` syncs the live DB schema with `schema.prisma`. **It does not drop tables you have data in.** If a column is removed in the schema, however, that column gets dropped — so be careful with destructive schema changes.
-  - The seed script has an idempotency guard: it only seeds if `branch.count() === 0`. So your customer orders / bookings are safe. To force a re-seed locally, run with `SEED_FORCE=1`.
-
----
-
-## Cost knobs
-
-You can lower cost by editing `render.yaml` (then commit and push):
-
-| Change | Saving | Trade-off |
-|---|---|---|
-| Drop API plan to `free` | ~$7/mo | API sleeps after 15 min idle — workers freeze, first request after sleep takes ~30s |
-| Drop Web plan to `free` | ~$7/mo | Same sleep behavior on the public site |
-| Drop DB to `free` | ~$7/mo | 1 GB cap, expires 90 days after creation, no backups |
-| Switch region from `singapore` to `oregon` | $0 | Adds ~250 ms latency for Indian users |
-
-For a single-restaurant launch, `starter` plans across the board are the realistic floor. Scaling up later is one click in the Render UI.
-
----
-
-## Production hardening still to do
-
-The README's "Going to staging" section is honest about the gap between scaffold and battle-ready. The biggest items not yet addressed:
-
-1. **Workers are in-process `setInterval` loops.** This works on a single API instance. If you ever scale the API to >1 replica (Render's `numInstances: 2+`), every replica will run every worker → duplicate auto-assignments, duplicate review requests. The fix is BullMQ + Redis as the README documents — keep the API at `numInstances: 1` until that swap happens.
-2. **Health check is a simple OK ping.** Add real DB connectivity + worker liveness checks to `/api/v1/health` for proper rolling deploys.
-3. **No error monitoring wired up.** Add a Sentry DSN to start capturing prod errors.
-4. **JWT secret is auto-generated by Render and never rotated.** Acceptable for now; rotate annually.
-5. **No backups beyond Render's daily Postgres snapshots.** Add `pg_dump` to S3 if customer data matters to you.
-6. **Legal & brand assets** (FSSAI, GST display, photography, privacy policy) are placeholders only. These are non-negotiable for a real restaurant — see README §10.
+- **Push to `main`** → Render auto-deploys API (via `autoDeploy: true` in `render.yaml`), Vercel auto-deploys web.
+- Both deploys run in parallel and typically finish in 3–5 minutes.
+- The API runs `npm run release` on every deploy — `prisma db push --accept-data-loss` syncs the schema, then `prisma/seed.ts` runs but is idempotent (`Branch.count() > 0` short-circuits).
+- To force a re-seed in prod (rare): set `SEED_FORCE=1` on Render briefly, redeploy, then unset.
 
 ---
 
 ## Troubleshooting
 
-- **Build fails on `prisma generate`.** Ensure `DATABASE_URL` resolves; on first deploy the database may not be ready before the API build starts. Click "Manual Deploy → Deploy latest commit" once Postgres is green.
-- **`Error: P1001` (can't reach DB).** `DATABASE_URL` is wrong or the DB is paused. The blueprint wires it correctly via `fromDatabase` — only happens if you edited it.
-- **WebSocket disconnects every ~30s.** Render's edge keeps WS alive, but free-tier idle disconnects exist. Confirm `NEXT_PUBLIC_WS_URL` uses `wss://` not `ws://`.
-- **CORS errors in browser console.** `FRONTEND_URL` on `lbc-api` does not match the actual web URL — fix and redeploy.
-- **Logins via OTP `000000` stop working in prod.** Expected. `DEV_OTP` is intentionally unset in `render.yaml` so the dev backdoor closes. Set it on `lbc-api` env if you want to keep it for demos.
+| Symptom | Cause |
+|---|---|
+| CORS errors in browser console | `FRONTEND_URL` on Render doesn't match the actual Vercel URL — fix and redeploy. |
+| WebSocket disconnects every 30s | `NEXT_PUBLIC_WS_URL` uses `ws://` instead of `wss://`. Must be wss in prod. |
+| `Error: P1001` on build | `DATABASE_URL` is wrong or Neon is paused. Test with `psql` first. |
+| Build fails on `use-postgres.js` | The script is idempotent — if `schema.prisma` was hand-edited to be already on postgres, it bails harmlessly. Re-check by `git diff schema.prisma`. |
+| Lucky AI says "lite mode" | `ANTHROPIC_API_KEY` not set. Add it on Render to enable Claude Haiku. |
+| Push notifications never arrive | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` not set on Render. Also re-subscribe in the browser after setting keys (the old subscription is for a different VAPID identity). |
+| Map shows "set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" | Add the key on Vercel and **redeploy** (NEXT_PUBLIC_* bakes at build time). |

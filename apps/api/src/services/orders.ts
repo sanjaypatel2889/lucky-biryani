@@ -4,6 +4,7 @@
 import { prisma, now } from '../db';
 import { bus } from '../realtime';
 import { notify } from './notify';
+import { push } from './push';
 
 export const ORDER_STATES = [
   'PENDING_PAYMENT', 'PAID', 'ACCEPTED', 'PREPARING', 'READY',
@@ -57,12 +58,19 @@ export async function transition(
 
   // Notifications
   const user = await prisma.user.findUnique({ where: { id: o.userId } });
+  const trackUrl = `${process.env.FRONTEND_URL ?? ''}/orders/${o.id}`;
   if (user) {
     if (to === 'PAID') {
       await notify.whatsapp(user.phone, 'ORDER_PAID', {
-        orderNumber: o.orderNumber, total: o.total.toFixed(2),
-        trackUrl: `${process.env.FRONTEND_URL ?? ''}/orders/${o.id}`,
+        orderNumber: o.orderNumber, total: o.total.toFixed(2), trackUrl,
       });
+      push.sendToUser(user.id, { title: 'Order confirmed', body: `${o.orderNumber} · ₹${o.total.toFixed(0)}`, url: trackUrl }).catch(() => {});
+    } else if (to === 'ACCEPTED') {
+      push.sendToUser(user.id, { title: 'Kitchen accepted your order', body: `${o.orderNumber} is on its way to the pan`, url: trackUrl }).catch(() => {});
+    } else if (to === 'PREPARING') {
+      push.sendToUser(user.id, { title: 'Cooking now', body: `${o.orderNumber} is in the dum`, url: trackUrl }).catch(() => {});
+    } else if (to === 'READY') {
+      push.sendToUser(user.id, { title: 'Ready', body: `${o.orderNumber} packed for delivery`, url: trackUrl }).catch(() => {});
     } else if (to === 'OUT_FOR_DELIVERY') {
       const r = o.riderId
         ? await prisma.rider.findUnique({ where: { id: o.riderId }, include: { user: true } })
@@ -72,11 +80,15 @@ export async function transition(
         riderName: r?.user.name ?? 'our rider',
         etaMin: 25,
       });
+      push.sendToUser(user.id, { title: 'On the way', body: `${r?.user.name ?? 'Rider'} is heading to you · ~25 min`, url: trackUrl }).catch(() => {});
     } else if (to === 'DELIVERED') {
       await notify.whatsapp(user.phone, 'ORDER_DELIVERED', {
         orderNumber: o.orderNumber,
         reviewUrl: `${process.env.FRONTEND_URL ?? ''}/orders/${o.id}/review`,
       });
+      push.sendToUser(user.id, { title: 'Delivered', body: 'Enjoy! Tap to leave a quick review.', url: `${trackUrl}/review` }).catch(() => {});
+    } else if (to === 'CANCELLED') {
+      push.sendToUser(user.id, { title: 'Order cancelled', body: `${o.orderNumber} was cancelled`, url: trackUrl }).catch(() => {});
     }
   }
 

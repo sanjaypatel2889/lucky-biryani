@@ -17,7 +17,12 @@ type MenuItem = {
   isVeg: boolean; spiceLevel: number; available: boolean;
   prepMinutes: number; modifierGroups: ModifierGroup[];
   imageUrl?: string | null;
+  allergens?: string[]; calories?: number | null;
+  isBestseller?: boolean; isTrending?: boolean;
+  ratingAvg?: number | null; ratingCount?: number;
 };
+
+const ALLERGENS = ['milk', 'gluten', 'egg', 'tree-nuts', 'crustaceans', 'soy'];
 type Category = { id: string; name: string; slug: string };
 
 export default function MenuPage() {
@@ -26,6 +31,9 @@ export default function MenuPage() {
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [vegOnly, setVegOnly] = useState(false);
+  const [maxSpice, setMaxSpice] = useState(3);
+  const [maxPrice, setMaxPrice] = useState(500);
+  const [exclude, setExclude] = useState<string[]>([]);
   const [picking, setPicking] = useState<MenuItem | null>(null);
 
   useEffect(() => {
@@ -37,12 +45,22 @@ export default function MenuPage() {
   }, []);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return items.filter((i) => {
       if (vegOnly && !i.isVeg) return false;
-      if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (q && !(
+        i.name.toLowerCase().includes(q) ||
+        (i.description ?? '').toLowerCase().includes(q) ||
+        i.categoryName.toLowerCase().includes(q)
+      )) return false;
+      if (i.spiceLevel > maxSpice) return false;
+      if (i.basePrice > maxPrice) return false;
+      if (exclude.length && (i.allergens ?? []).some((a) => exclude.includes(a))) return false;
       return true;
     });
-  }, [items, search, vegOnly]);
+  }, [items, search, vegOnly, maxSpice, maxPrice, exclude]);
+
+  const totalCount = filtered.length;
 
   const grouped = useMemo(() => {
     const m = new Map<string, MenuItem[]>();
@@ -71,9 +89,15 @@ export default function MenuPage() {
       </section>
 
       <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 md:grid-cols-[260px_1fr]">
-        <aside className="md:sticky md:top-24 md:h-[calc(100vh-7rem)]">
-          <div className="card p-4">
-            <input className="input mb-3" placeholder="Search the menu" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <aside className="md:sticky md:top-24 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
+          <div className="card p-4 space-y-4">
+            <input
+              className="input"
+              placeholder="Search dish, ingredient, category…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
             <label className="flex items-center gap-2 text-sm text-stone-700">
               <input type="checkbox" checked={vegOnly} onChange={(e) => setVegOnly(e.target.checked)} />
               <span className="flex items-center gap-1.5">
@@ -81,7 +105,44 @@ export default function MenuPage() {
                 Veg only
               </span>
             </label>
-            <ul className="mt-4 space-y-1">
+
+            <div>
+              <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <span>Max spice</span>
+                <span>{['mild','medium','hot','extra hot'][maxSpice]}</span>
+              </div>
+              <input type="range" min={0} max={3} value={maxSpice} onChange={(e) => setMaxSpice(Number(e.target.value))} className="w-full accent-brand-600" />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <span>Max price</span>
+                <span>₹{maxPrice}</span>
+              </div>
+              <input type="range" min={50} max={500} step={10} value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))} className="w-full accent-brand-600" />
+            </div>
+
+            <div>
+              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500">Skip allergens</div>
+              <div className="flex flex-wrap gap-1.5">
+                {ALLERGENS.map((a) => {
+                  const on = exclude.includes(a);
+                  return (
+                    <button key={a}
+                      onClick={() => setExclude((cur) => on ? cur.filter((x) => x !== a) : [...cur, a])}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${on ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-rose-200 hover:bg-rose-50/40'}`}>
+                      {on ? '✗ ' : ''}{a}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="text-xs text-stone-500">
+              Showing <strong className="text-stone-900">{totalCount}</strong> of {items.length} dishes
+            </div>
+
+            <ul className="space-y-1 border-t border-stone-100 pt-3">
               {cats.map((c) => {
                 const list = grouped.get(c.id) ?? [];
                 if (!list.length) return null;
@@ -123,6 +184,12 @@ export default function MenuPage() {
                         {!i.available && (
                           <div className="absolute inset-0 grid place-items-center bg-stone-900/60 text-xs font-semibold uppercase tracking-wider text-white">Sold out</div>
                         )}
+                        {i.isBestseller && (
+                          <span className="absolute left-1.5 top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">★ Bestseller</span>
+                        )}
+                        {!i.isBestseller && i.isTrending && (
+                          <span className="absolute left-1.5 top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">🔥 Trending</span>
+                        )}
                       </div>
                       <div className="flex flex-1 flex-col">
                         <div className="flex items-start gap-2">
@@ -132,10 +199,23 @@ export default function MenuPage() {
                           <h3 className="display text-lg font-semibold text-stone-900">{i.name}</h3>
                         </div>
                         <p className="mt-1 line-clamp-2 text-sm text-stone-500">{i.description}</p>
-                        <div className="mt-2 flex items-center gap-3 text-xs text-stone-500">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+                          {i.ratingAvg != null && (
+                            <span className="flex items-center gap-1 text-amber-600">
+                              ★ {i.ratingAvg.toFixed(1)} <span className="text-stone-400">({i.ratingCount})</span>
+                            </span>
+                          )}
                           {i.spiceLevel >= 2 && <span className="chip bg-rose-50 text-rose-700">🌶 hot</span>}
                           <span>~{i.prepMinutes} min</span>
+                          {typeof i.calories === 'number' && <span>{i.calories} kcal</span>}
                         </div>
+                        {(i.allergens && i.allergens.length > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {i.allergens.slice(0, 4).map((a) => (
+                              <span key={a} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-stone-500">{a}</span>
+                            ))}
+                          </div>
+                        )}
                         <div className="mt-auto flex items-center justify-between pt-3">
                           <span className="display text-xl font-bold text-stone-900">₹{i.basePrice}</span>
                           {i.available && (

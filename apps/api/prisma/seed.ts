@@ -111,32 +111,34 @@ async function main() {
   type ItemDef = {
     cat: string; name: string; desc: string; price: number; veg: boolean;
     spice?: number; prep?: number; mods?: string[]; tax?: number;
+    allergens?: string[]; calories?: number;
+    bestseller?: boolean; trending?: boolean;
   };
   const itemDefs: ItemDef[] = [
-    { cat: biryani.id, name: 'Hyderabadi Chicken Biryani', desc: 'Long-grain basmati, slow-cooked with marinated chicken, saffron and aromatic spices.', price: 320, veg: false, spice: 2, prep: 25, mods: [spice.id, portion.id, addons.id] },
-    { cat: biryani.id, name: 'Mutton Dum Biryani',         desc: 'Tender mutton, sealed dum-style with caramelized onions.', price: 420, veg: false, spice: 2, prep: 35, mods: [spice.id, portion.id, addons.id] },
-    { cat: biryani.id, name: 'Veg Biryani',                desc: 'Seasonal vegetables, mint, fried onions, ghee.', price: 240, veg: true, spice: 1, prep: 22, mods: [spice.id, portion.id, addons.id] },
-    { cat: biryani.id, name: 'Prawn Biryani',              desc: 'Fresh prawns, coastal masala, basmati rice.', price: 380, veg: false, spice: 2, prep: 28, mods: [spice.id, portion.id, addons.id] },
+    { cat: biryani.id, name: 'Hyderabadi Chicken Biryani', desc: 'Long-grain basmati, slow-cooked with marinated chicken, saffron and aromatic spices.', price: 320, veg: false, spice: 2, prep: 25, mods: [spice.id, portion.id, addons.id], allergens: ['milk','tree-nuts'], calories: 720, bestseller: true, trending: true },
+    { cat: biryani.id, name: 'Mutton Dum Biryani',         desc: 'Tender mutton, sealed dum-style with caramelized onions.', price: 420, veg: false, spice: 2, prep: 35, mods: [spice.id, portion.id, addons.id], allergens: ['milk','tree-nuts'], calories: 860, bestseller: true },
+    { cat: biryani.id, name: 'Veg Biryani',                desc: 'Seasonal vegetables, mint, fried onions, ghee.', price: 240, veg: true, spice: 1, prep: 22, mods: [spice.id, portion.id, addons.id], allergens: ['milk'], calories: 610 },
+    { cat: biryani.id, name: 'Prawn Biryani',              desc: 'Fresh prawns, coastal masala, basmati rice.', price: 380, veg: false, spice: 2, prep: 28, mods: [spice.id, portion.id, addons.id], allergens: ['crustaceans','milk'], calories: 700 },
 
-    { cat: appetisers.id, name: 'Chicken 65',     desc: 'Crispy fried chicken bites tossed with curry leaves.', price: 220, veg: false, spice: 3, prep: 15 },
-    { cat: appetisers.id, name: 'Paneer Tikka',   desc: 'Tandoor-grilled paneer with peppers and onion.', price: 240, veg: true, spice: 1, prep: 18 },
-    { cat: appetisers.id, name: 'Veg Manchurian', desc: 'Indo-Chinese cabbage and carrot dumplings.', price: 180, veg: true, spice: 2, prep: 14 },
+    { cat: appetisers.id, name: 'Chicken 65',     desc: 'Crispy fried chicken bites tossed with curry leaves.', price: 220, veg: false, spice: 3, prep: 15, allergens: ['gluten','egg'], calories: 480, trending: true },
+    { cat: appetisers.id, name: 'Paneer Tikka',   desc: 'Tandoor-grilled paneer with peppers and onion.', price: 240, veg: true, spice: 1, prep: 18, allergens: ['milk'], calories: 420 },
+    { cat: appetisers.id, name: 'Veg Manchurian', desc: 'Indo-Chinese cabbage and carrot dumplings.', price: 180, veg: true, spice: 2, prep: 14, allergens: ['soy','gluten'], calories: 380 },
 
-    { cat: curries.id, name: 'Butter Chicken',     desc: 'Creamy tomato gravy with tandoor chicken.', price: 280, veg: false, spice: 1, prep: 18 },
-    { cat: curries.id, name: 'Paneer Butter Masala', desc: 'Rich tomato-cashew gravy with paneer.', price: 240, veg: true, spice: 1, prep: 16 },
-    { cat: curries.id, name: 'Dal Makhani',         desc: 'Slow-cooked black lentils with butter.', price: 200, veg: true, spice: 1, prep: 20 },
+    { cat: curries.id, name: 'Butter Chicken',     desc: 'Creamy tomato gravy with tandoor chicken.', price: 280, veg: false, spice: 1, prep: 18, allergens: ['milk','tree-nuts'], calories: 540, bestseller: true },
+    { cat: curries.id, name: 'Paneer Butter Masala', desc: 'Rich tomato-cashew gravy with paneer.', price: 240, veg: true, spice: 1, prep: 16, allergens: ['milk','tree-nuts'], calories: 510 },
+    { cat: curries.id, name: 'Dal Makhani',         desc: 'Slow-cooked black lentils with butter.', price: 200, veg: true, spice: 1, prep: 20, allergens: ['milk'], calories: 390 },
 
-    { cat: breads.id, name: 'Butter Naan',  desc: 'Soft tandoor-baked bread, butter-brushed.', price: 50, veg: true, prep: 5 },
-    { cat: breads.id, name: 'Garlic Naan',  desc: 'Naan with fresh garlic and coriander.', price: 60, veg: true, prep: 5 },
-    { cat: breads.id, name: 'Tandoori Roti', desc: 'Whole-wheat tandoor roti.', price: 35, veg: true, prep: 5 },
+    { cat: breads.id, name: 'Butter Naan',  desc: 'Soft tandoor-baked bread, butter-brushed.', price: 50, veg: true, prep: 5, allergens: ['gluten','milk'], calories: 280 },
+    { cat: breads.id, name: 'Garlic Naan',  desc: 'Naan with fresh garlic and coriander.', price: 60, veg: true, prep: 5, allergens: ['gluten','milk'], calories: 300 },
+    { cat: breads.id, name: 'Tandoori Roti', desc: 'Whole-wheat tandoor roti.', price: 35, veg: true, prep: 5, allergens: ['gluten'], calories: 200 },
 
-    { cat: desserts.id, name: 'Double ka Meetha',  desc: 'Hyderabadi bread pudding in saffron milk.', price: 120, veg: true, prep: 8 },
-    { cat: desserts.id, name: 'Gulab Jamun',       desc: 'Two pieces, warm syrup.', price: 80, veg: true, prep: 5 },
-    { cat: desserts.id, name: 'Qubani ka Meetha',  desc: 'Apricot stew with cream.', price: 140, veg: true, prep: 7 },
+    { cat: desserts.id, name: 'Double ka Meetha',  desc: 'Hyderabadi bread pudding in saffron milk.', price: 120, veg: true, prep: 8, allergens: ['milk','gluten','tree-nuts'], calories: 460 },
+    { cat: desserts.id, name: 'Gulab Jamun',       desc: 'Two pieces, warm syrup.', price: 80, veg: true, prep: 5, allergens: ['milk','gluten'], calories: 320 },
+    { cat: desserts.id, name: 'Qubani ka Meetha',  desc: 'Apricot stew with cream.', price: 140, veg: true, prep: 7, allergens: ['milk','tree-nuts'], calories: 380 },
 
-    { cat: beverages.id, name: 'Mango Lassi',      desc: 'Sweet yogurt-mango drink.', price: 90, veg: true, prep: 4, tax: 0.05 },
-    { cat: beverages.id, name: 'Masala Chai',      desc: 'Spiced milk tea.', price: 40, veg: true, prep: 5 },
-    { cat: beverages.id, name: 'Bottled Soft Drink', desc: '300ml.', price: 50, veg: true, prep: 1, tax: 0.18 },
+    { cat: beverages.id, name: 'Mango Lassi',      desc: 'Sweet yogurt-mango drink.', price: 90, veg: true, prep: 4, tax: 0.05, allergens: ['milk'], calories: 240 },
+    { cat: beverages.id, name: 'Masala Chai',      desc: 'Spiced milk tea.', price: 40, veg: true, prep: 5, allergens: ['milk'], calories: 90 },
+    { cat: beverages.id, name: 'Bottled Soft Drink', desc: '300ml.', price: 50, veg: true, prep: 1, tax: 0.18, calories: 130 },
   ];
 
   for (const def of itemDefs) {
@@ -145,6 +147,9 @@ async function main() {
         categoryId: def.cat, name: def.name, description: def.desc,
         basePrice: def.price, isVeg: def.veg, spiceLevel: def.spice ?? 1,
         prepMinutes: def.prep ?? 15, taxRate: def.tax ?? 0.05,
+        allergens: JSON.stringify(def.allergens ?? []),
+        calories: def.calories ?? null,
+        isBestseller: !!def.bestseller, isTrending: !!def.trending,
       },
     });
     for (const [i, gid] of (def.mods ?? []).entries()) {
@@ -191,15 +196,29 @@ async function main() {
     ],
   });
 
-  // Demo users
+  // Demo users — emails are required since the email-OTP login flow.
+  // The fixed addresses below also work as the seed for ADMIN_TEST_EMAIL /
+  // RIDER_TEST_EMAIL in scripts/full-test.ps1.
   const owner = await prisma.user.create({
-    data: { phone: '+919999000001', name: 'Lucky Owner', role: 'OWNER', createdAt: now() },
+    data: {
+      phone: '+919999000001', email: 'owner@lucky.test',
+      name: 'Lucky Owner', role: 'OWNER',
+      referralCode: 'LUCKY-OWN', createdAt: now(),
+    },
   });
   const admin = await prisma.user.create({
-    data: { phone: '+919999000002', name: 'Floor Manager', role: 'ADMIN', createdAt: now() },
+    data: {
+      phone: '+919999000002', email: 'admin@lucky.test',
+      name: 'Floor Manager', role: 'ADMIN',
+      referralCode: 'LUCKY-ADM', createdAt: now(),
+    },
   });
   const customer = await prisma.user.create({
-    data: { phone: '+919999000003', name: 'Demo Customer', role: 'CUSTOMER', loyaltyPoints: 50, createdAt: now() },
+    data: {
+      phone: '+919999000003', email: 'customer@lucky.test',
+      name: 'Demo Customer', role: 'CUSTOMER', loyaltyPoints: 50,
+      referralCode: 'LUCKY-CUS', createdAt: now(),
+    },
   });
   await prisma.address.create({
     data: {
@@ -212,9 +231,9 @@ async function main() {
 
   // Riders
   const riderUsers = await Promise.all([
-    prisma.user.create({ data: { phone: '+919999000010', name: 'Imran',  role: 'RIDER', createdAt: now() } }),
-    prisma.user.create({ data: { phone: '+919999000011', name: 'Suresh', role: 'RIDER', createdAt: now() } }),
-    prisma.user.create({ data: { phone: '+919999000012', name: 'Ravi',   role: 'RIDER', createdAt: now() } }),
+    prisma.user.create({ data: { phone: '+919999000010', email: 'rider1@lucky.test', name: 'Imran',  role: 'RIDER', referralCode: 'LUCKY-R01', createdAt: now() } }),
+    prisma.user.create({ data: { phone: '+919999000011', email: 'rider2@lucky.test', name: 'Suresh', role: 'RIDER', referralCode: 'LUCKY-R02', createdAt: now() } }),
+    prisma.user.create({ data: { phone: '+919999000012', email: 'rider3@lucky.test', name: 'Ravi',   role: 'RIDER', referralCode: 'LUCKY-R03', createdAt: now() } }),
   ]);
   for (const ru of riderUsers) {
     await prisma.rider.create({
@@ -236,11 +255,11 @@ async function main() {
   console.log(`✓ Tables:    ${tableLayout.length}`);
   console.log(`✓ Coupons:   FIRST50, OFFPEAK10, FREEDEL`);
   console.log(`✓ Riders:    ${riderUsers.length}`);
-  console.log(`\nDemo logins (OTP = 000000):`);
-  console.log(`  Owner    +919999000001`);
-  console.log(`  Admin    +919999000002`);
-  console.log(`  Customer +919999000003`);
-  console.log(`  Riders   +919999000010 / 11 / 12`);
+  console.log(`\nDemo logins (random emailed OTP; check NotificationLog or use scripts/get-otp.ts):`);
+  console.log(`  Owner    owner@lucky.test`);
+  console.log(`  Admin    admin@lucky.test`);
+  console.log(`  Customer customer@lucky.test`);
+  console.log(`  Riders   rider1@lucky.test / rider2@lucky.test / rider3@lucky.test`);
 }
 
 main()

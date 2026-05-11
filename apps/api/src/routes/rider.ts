@@ -113,6 +113,17 @@ riderRouter.post('/orders/:id/delivered', requireAuth(['RIDER']), async (req, re
   if (!r) return res.status(404).json({ error: 'not_a_rider' });
   const o = await prisma.order.findUnique({ where: { id: req.params.id } });
   if (!o || o.riderId !== r.id) return res.status(403).json({ error: 'not_yours' });
+  // Optional delivery-OTP verification for safer COD / verified delivery.
+  // If the order has a deliveryOtp and the rider supplied one, it must match.
+  const supplied = (req.body?.otp ?? '').toString().trim();
+  if (supplied && o.deliveryOtp && supplied !== o.deliveryOtp) {
+    return res.status(400).json({ error: 'bad_otp' });
+  }
+  // Optional photo proof
+  const proof = (req.body?.proofUrl ?? '').toString().trim();
+  if (proof) {
+    await prisma.order.update({ where: { id: o.id }, data: { deliveryProofUrl: proof } });
+  }
   const upd = await transition(o.id, 'DELIVERED', `RIDER:${r.id}`);
   // free rider, count cash
   const cash = o.paymentMode === 'COD' ? o.total : 0;

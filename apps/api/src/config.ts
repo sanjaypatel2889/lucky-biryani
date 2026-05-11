@@ -71,4 +71,31 @@ export const config = {
     acceptWindowSec: 10,
     maxAttempts: 5,
   },
+
+  ai: {
+    // Anthropic Claude — used for the Lucky AI chatbot. The chat endpoint
+    // degrades to a deterministic rule-based reply if no key is set, so the
+    // UI keeps working out-of-the-box.
+    anthropicKey: env('ANTHROPIC_API_KEY'),
+    model: env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
+    enabled: !!env('ANTHROPIC_API_KEY'),
+  },
+
+  push: {
+    // Generate once via: npx web-push generate-vapid-keys
+    vapidPublic: env('VAPID_PUBLIC_KEY'),
+    vapidPrivate: env('VAPID_PRIVATE_KEY'),
+    contact: env('VAPID_CONTACT', 'mailto:hello@luckybiryani.in'),
+    enabled: !!env('VAPID_PUBLIC_KEY') && !!env('VAPID_PRIVATE_KEY'),
+  },
+
+  referrals: {
+    bothEarnPoints: 50, // loyalty points credited to both parties on first paid order
+  },
+
+  loyalty: {
+    pointsPerRupee: 0.01,        // 1 point per ₹100 spent
+    redeemRupeesPerPoint: 1,     // 1 point = ₹1
+    maxRedeemPctOfSubtotal: 0.2, // capped at 20%
+  },
 };

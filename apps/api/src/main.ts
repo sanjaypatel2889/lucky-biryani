@@ -15,6 +15,10 @@ import { bookingRouter } from './routes/bookings';
 import { riderRouter } from './routes/rider';
 import { adminRouter } from './routes/admin';
 import { webhookRouter } from './routes/webhooks';
+import { reviewsRouter } from './routes/reviews';
+import { aiRouter } from './routes/ai';
+import { pushRouter } from './routes/push';
+import { initPush } from './services/push';
 
 const app = express();
 
@@ -32,6 +36,9 @@ app.use('/api/v1/bookings', bookingRouter);
 app.use('/api/v1/rider', riderRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/webhooks', webhookRouter);
+app.use('/api/v1/reviews', reviewsRouter);
+app.use('/api/v1/ai', aiRouter);
+app.use('/api/v1/push', pushRouter);
 
 // Generic error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -41,6 +48,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 const server = http.createServer(app);
 attachWs(server);
+initPush();
 startWorkers();
 
 server.listen(config.port, () => {

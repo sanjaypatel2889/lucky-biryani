@@ -3,6 +3,7 @@ import { Header } from '@/components/Header';
 import { Reveal } from '@/components/Reveal';
 import { Marquee } from '@/components/Marquee';
 import { Counter } from '@/components/Counter';
+import { BranchReviews } from '@/components/BranchReviews';
 import { dishPhoto, HERO, STORY, SPICES, RESTAURANT } from '@/lib/photos';
 
 const SERVER_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
@@ -224,6 +225,9 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Real reviews (DB) — shows only when reviews exist */}
+      <BranchReviews />
+
       {/* TESTIMONIALS ======================================================= */}
       <section className="border-y border-stone-200 bg-cream py-24 md:py-32">
         <div className="mx-auto max-w-7xl px-4">
@@ -311,7 +315,7 @@ export default async function Home() {
 
       {/* FOOTER ============================================================= */}
       <footer className="border-t border-stone-200 bg-stone-900 text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 md:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 md:grid-cols-5">
           <div>
             <div className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 display font-bold">L</span>
@@ -319,8 +323,9 @@ export default async function Home() {
             </div>
             <p className="mt-3 max-w-xs text-sm text-white/60">Hyderabadi biryani, three generations deep.</p>
           </div>
-          <FooterCol title="Order" links={[['Menu','/menu'],['Cart','/cart'],['Track','/orders']]} />
+          <FooterCol title="Order" links={[['Menu','/menu'],['Cart','/cart'],['Track','/orders'],['Refer & earn','/refer']]} />
           <FooterCol title="Visit" links={[['Reserve a table','/book'],['Hours','#hours'],['Directions','#map']]} />
+          <FooterCol title="Legal" links={[['Privacy Policy','/privacy'],['Terms of Service','/terms']]} />
           <FooterCol title="Staff" links={[['Manager dashboard','/admin'],['Rider app','/rider']]} />
         </div>
         <div className="border-t border-white/10 px-4 py-5 text-center text-xs text-white/50">

@@ -15,6 +15,15 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [resendIn, setResendIn] = useState(0);
+  const [referralCode, setReferralCode] = useState<string>('');
+
+  // Pick up a referral code from the URL once on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const p = new URLSearchParams(window.location.search);
+    const r = (p.get('ref') ?? '').trim();
+    if (r) setReferralCode(r);
+  }, []);
 
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -68,7 +77,7 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
     if (code.length !== 6) return;
     setBusy(true); setErr('');
     try {
-      await verifyOTP(email.trim().toLowerCase(), code);
+      await verifyOTP(email.trim().toLowerCase(), code, undefined, referralCode || undefined);
       onClose();
     } catch (e: any) {
       setErr(e?.message || 'Invalid or expired code. Please try again.');
@@ -155,6 +164,11 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
               <p className="mt-1 text-sm text-slate-500">
                 We'll email you a one-time code to verify your address.
               </p>
+              {referralCode && (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  Referral code <strong>{referralCode}</strong> applied — you and your friend each earn 50 loyalty points after sign-up.
+                </div>
+              )}
 
               <div className="mt-6 space-y-4">
                 <div>

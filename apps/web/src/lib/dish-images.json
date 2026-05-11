@@ -1,0 +1,326 @@
+{
+  "Apollo Fish": {
+    "url": "https://www.themealdb.com/images/media/meals/vptqpw1511798500.jpg",
+    "source": "mealdb"
+  },
+  "Bagara Baingan": {
+    "url": "https://www.themealdb.com/images/media/meals/8c8m4q1763791156.jpg",
+    "source": "mealdb"
+  },
+  "Boneless Chicken Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Bottled Soft Drink": {
+    "url": "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Butter Chicken": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken4.jpg",
+    "source": "foodish"
+  },
+  "Butter Naan": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken1.jpg",
+    "source": "foodish"
+  },
+  "Chicken 65": {
+    "url": "https://www.themealdb.com/images/media/meals/tyywsw1505930373.jpg",
+    "source": "mealdb"
+  },
+  "Chicken Biryani Family Pack": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Chicken Chettinad": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken4.jpg",
+    "source": "foodish"
+  },
+  "Chicken Fry-Piece Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani2.jpg",
+    "source": "foodish"
+  },
+  "Chicken Hakka Noodles": {
+    "url": "https://foodish-api.com/images/rice/rice5.jpg",
+    "source": "foodish"
+  },
+  "Chicken Korma": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken1.jpg",
+    "source": "foodish"
+  },
+  "Chicken Lollipop": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken4.jpg",
+    "source": "foodish"
+  },
+  "Chicken Majestic": {
+    "url": "https://www.themealdb.com/images/media/meals/tyywsw1505930373.jpg",
+    "source": "mealdb"
+  },
+  "Chicken Manchurian": {
+    "url": "https://www.themealdb.com/images/media/meals/arzs741766434335.jpg",
+    "source": "mealdb"
+  },
+  "Chicken Tikka Masala": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken1.jpg",
+    "source": "foodish"
+  },
+  "Chilli Chicken": {
+    "url": "https://www.themealdb.com/images/media/meals/arzs741766434335.jpg",
+    "source": "mealdb"
+  },
+  "Chilli Paneer": {
+    "url": "https://www.themealdb.com/images/media/meals/xxpqsy1511452222.jpg",
+    "source": "mealdb"
+  },
+  "Crispy Corn": {
+    "url": "https://www.themealdb.com/images/media/meals/vz94r81760534692.jpg",
+    "source": "mealdb"
+  },
+  "Dal Makhani": {
+    "url": "https://www.themealdb.com/images/media/meals/wuxrtu1483564410.jpg",
+    "source": "mealdb"
+  },
+  "Dal Tadka": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken4.jpg",
+    "source": "foodish"
+  },
+  "Double ka Meetha": {
+    "url": "https://foodish-api.com/images/dessert/dessert2.jpg",
+    "source": "foodish"
+  },
+  "Dum ka Chicken": {
+    "url": "https://www.themealdb.com/images/media/meals/tyywsw1505930373.jpg",
+    "source": "mealdb"
+  },
+  "Egg Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani4.jpg",
+    "source": "foodish"
+  },
+  "Falooda": {
+    "url": "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Fish Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani1.jpg",
+    "source": "foodish"
+  },
+  "Fresh Lime Soda": {
+    "url": "https://images.unsplash.com/photo-1605196560547-b2f7281b7355?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Galouti Kebab": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  },
+  "Garlic Naan": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken4.jpg",
+    "source": "foodish"
+  },
+  "Gobi Manchurian": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  },
+  "Gulab Jamun": {
+    "url": "https://foodish-api.com/images/dessert/dessert1.jpg",
+    "source": "foodish"
+  },
+  "Hara Bhara Kebab": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  },
+  "Hyderabadi Chicken Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Irani Chai": {
+    "url": "https://images.unsplash.com/photo-1546039907-7fa05f864c02?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Jeera Rice": {
+    "url": "https://www.themealdb.com/images/media/meals/cr2kyr1763793839.jpg",
+    "source": "mealdb"
+  },
+  "Kadai Paneer": {
+    "url": "https://www.themealdb.com/images/media/meals/xxpqsy1511452222.jpg",
+    "source": "mealdb"
+  },
+  "Keema Naan": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  },
+  "Khatti Dal": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken3.jpg",
+    "source": "foodish"
+  },
+  "Lachha Paratha": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken3.jpg",
+    "source": "foodish"
+  },
+  "Lucky Feast for 4": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Malai Kofta": {
+    "url": "https://www.themealdb.com/images/media/meals/lgmnff1763789847.jpg",
+    "source": "mealdb"
+  },
+  "Mango Lassi": {
+    "url": "https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Masala Chai": {
+    "url": "https://images.unsplash.com/photo-1593560704563-f176a2eb61db?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Mirchi ka Salan": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  },
+  "Murgh Malai Tikka": {
+    "url": "https://www.themealdb.com/images/media/meals/qptpvt1487339892.jpg",
+    "source": "mealdb"
+  },
+  "Mushroom Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani2.jpg",
+    "source": "foodish"
+  },
+  "Mutton Biryani Family Pack": {
+    "url": "https://www.themealdb.com/images/media/meals/xrttsx1487339558.jpg",
+    "source": "mealdb"
+  },
+  "Mutton Boti Fry": {
+    "url": "https://www.themealdb.com/images/media/meals/yuwtuu1511295751.jpg",
+    "source": "mealdb"
+  },
+  "Mutton Dum Biryani": {
+    "url": "https://www.themealdb.com/images/media/meals/xrttsx1487339558.jpg",
+    "source": "mealdb"
+  },
+  "Mutton Fry-Piece Biryani": {
+    "url": "https://www.themealdb.com/images/media/meals/xrttsx1487339558.jpg",
+    "source": "mealdb"
+  },
+  "Mutton Haleem": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken4.jpg",
+    "source": "foodish"
+  },
+  "Mutton Marag": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken1.jpg",
+    "source": "foodish"
+  },
+  "Mutton Rogan Josh": {
+    "url": "https://www.themealdb.com/images/media/meals/vvstvq1487342592.jpg",
+    "source": "mealdb"
+  },
+  "Mutton Seekh Kebab": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken3.jpg",
+    "source": "foodish"
+  },
+  "Nihari Gosht": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  },
+  "Office Lunchbox Combo": {
+    "url": "https://foodish-api.com/images/biryani/biryani5.jpg",
+    "source": "foodish"
+  },
+  "Paneer 65": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken2.jpg",
+    "source": "foodish"
+  },
+  "Paneer Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Paneer Butter Masala": {
+    "url": "https://www.themealdb.com/images/media/meals/xxpqsy1511452222.jpg",
+    "source": "mealdb"
+  },
+  "Paneer Tikka": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken2.jpg",
+    "source": "foodish"
+  },
+  "Pathar ka Gosht": {
+    "url": "https://www.themealdb.com/images/media/meals/yuwtuu1511295751.jpg",
+    "source": "mealdb"
+  },
+  "Pepper Chicken Dry": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken2.jpg",
+    "source": "foodish"
+  },
+  "Phirni": {
+    "url": "https://foodish-api.com/images/dessert/dessert4.jpg",
+    "source": "foodish"
+  },
+  "Plain Rice": {
+    "url": "https://www.themealdb.com/images/media/meals/5r5rvx1763287943.jpg",
+    "source": "mealdb"
+  },
+  "Prawn Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Prawn Koliwada": {
+    "url": "https://www.themealdb.com/images/media/meals/1525873040.jpg",
+    "source": "mealdb"
+  },
+  "Qubani ka Meetha": {
+    "url": "https://www.themealdb.com/images/media/meals/72fgzj1764109947.jpg",
+    "source": "mealdb"
+  },
+  "Reshmi Kebab": {
+    "url": "https://www.themealdb.com/images/media/meals/qptpvt1487339892.jpg",
+    "source": "mealdb"
+  },
+  "Rumali Roti": {
+    "url": "https://www.themealdb.com/images/media/meals/hx335q1619789561.jpg",
+    "source": "mealdb"
+  },
+  "Schezwan Fried Rice": {
+    "url": "https://www.themealdb.com/images/media/meals/wuyd2h1765655837.jpg",
+    "source": "mealdb"
+  },
+  "Shahi Tukda": {
+    "url": "https://foodish-api.com/images/dessert/dessert1.jpg",
+    "source": "foodish"
+  },
+  "Sulaimani Chai": {
+    "url": "https://images.unsplash.com/photo-1599639957043-f3aa5c986398?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Sweet Lassi": {
+    "url": "https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?auto=format&fit=crop&w=1200&q=80",
+    "source": "manual"
+  },
+  "Tandoori Chicken (Full)": {
+    "url": "https://www.themealdb.com/images/media/meals/qptpvt1487339892.jpg",
+    "source": "mealdb"
+  },
+  "Tandoori Chicken (Half)": {
+    "url": "https://www.themealdb.com/images/media/meals/qptpvt1487339892.jpg",
+    "source": "mealdb"
+  },
+  "Tandoori Roti": {
+    "url": "https://www.themealdb.com/images/media/meals/hx335q1619789561.jpg",
+    "source": "mealdb"
+  },
+  "Tangdi Kebab": {
+    "url": "https://www.themealdb.com/images/media/meals/qptpvt1487339892.jpg",
+    "source": "mealdb"
+  },
+  "Veg Biryani": {
+    "url": "https://foodish-api.com/images/biryani/biryani3.jpg",
+    "source": "foodish"
+  },
+  "Veg Biryani Family Pack": {
+    "url": "https://foodish-api.com/images/biryani/biryani1.jpg",
+    "source": "foodish"
+  },
+  "Veg Manchurian": {
+    "url": "https://www.themealdb.com/images/media/meals/6vi2cv1763075785.jpg",
+    "source": "mealdb"
+  },
+  "Veg Pulao": {
+    "url": "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg",
+    "source": "foodish"
+  }
+}

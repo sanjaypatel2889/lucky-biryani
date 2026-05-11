@@ -6,10 +6,11 @@
     "dev": "tsx watch src/main.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "release": "prisma db push --accept-data-loss && tsx prisma/seed.ts",
+    "release": "prisma db push --accept-data-loss && tsx prisma/seed.ts && tsx scripts/extend-menu.ts",
     "db:migrate": "prisma migrate dev --name init",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:extend-menu": "tsx scripts/extend-menu.ts",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"
   },

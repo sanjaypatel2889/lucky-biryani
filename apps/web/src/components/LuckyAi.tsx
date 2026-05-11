@@ -30,8 +30,13 @@ export function LuckyAi() {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [interimText, setInterimText] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const recogRef = useRef<any>(null);
+  const finalTextRef = useRef<string>('');
+  const interimTextRef = useRef<string>('');
+  const silenceTimerRef = useRef<any>(null);
+  const SILENCE_MS = 1500; // wait this long after the last word before submitting
 
   // Restore conversation from session storage
   useEffect(() => {
@@ -118,32 +123,77 @@ export function LuckyAi() {
     window.speechSynthesis.speak(u);
   }
 
-  function stopListening() {
-    try { recogRef.current?.stop?.(); } catch {}
-    recogRef.current = null;
-    setListening(false);
+  function clearSilenceTimer() {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
   }
 
+  function stopListening() {
+    clearSilenceTimer();
+    try { recogRef.current?.stop?.(); } catch {}
+    // Submission happens in onend so we don't lose a final partial.
+  }
+
+  // Continuous listening: keeps the mic open through pauses, resets a silence
+  // timer on every audio chunk, and only submits when the user has been quiet
+  // for SILENCE_MS — the way a real conversation feels.
   function startListening() {
     const w = window as any;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) return;
     try { window.speechSynthesis?.cancel(); } catch {}
+    finalTextRef.current = '';
+    setInterimText('');
+
     const recog = new SR();
     recog.lang = 'en-IN';
-    recog.interimResults = false;
-    recog.continuous = false;
+    recog.interimResults = true;
+    recog.continuous = true;
     recog.maxAlternatives = 1;
+
     recog.onstart = () => setListening(true);
-    recog.onerror = () => { setListening(false); recogRef.current = null; };
-    recog.onend = () => { setListening(false); recogRef.current = null; };
-    recog.onresult = (e: any) => {
-      const text = e.results?.[0]?.[0]?.transcript ?? '';
-      if (text.trim()) {
+    recog.onerror = (e: any) => {
+      // "no-speech" / "aborted" are normal; just clean up
+      clearSilenceTimer();
+      setListening(false);
+      recogRef.current = null;
+    };
+    recog.onend = () => {
+      clearSilenceTimer();
+      setListening(false);
+      recogRef.current = null;
+      const finalText = (finalTextRef.current + ' ' + interimTextRef.current).replace(/\s+/g, ' ').trim();
+      finalTextRef.current = '';
+      interimTextRef.current = '';
+      setInterimText('');
+      if (finalText) {
         setConvMode('voice');
-        send(text, true);
+        void send(finalText, true);
       }
     };
+    recog.onresult = (e: any) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        const t = res[0]?.transcript ?? '';
+        if (res.isFinal) {
+          finalTextRef.current = (finalTextRef.current + ' ' + t).replace(/\s+/g, ' ').trim();
+        } else {
+          interim += t;
+        }
+      }
+      interimTextRef.current = interim;
+      setInterimText((finalTextRef.current + ' ' + interim).trim());
+
+      // Reset silence timer — every new audio chunk extends the window
+      clearSilenceTimer();
+      silenceTimerRef.current = setTimeout(() => {
+        try { recogRef.current?.stop?.(); } catch {}
+      }, SILENCE_MS);
+    };
+
     recogRef.current = recog;
     try {
       recog.start();
@@ -229,8 +279,10 @@ export function LuckyAi() {
             )}
             {listening && (
               <div className="flex justify-end">
-                <div className="rounded-2xl rounded-tr-sm bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-                  🎤 Listening… speak now
+                <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+                  {interimText
+                    ? <span>{interimText}<span className="ml-1 animate-pulse">▍</span></span>
+                    : <span>🎤 Listening… speak now</span>}
                 </div>
               </div>
             )}

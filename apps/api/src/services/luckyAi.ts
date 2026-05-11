@@ -104,35 +104,45 @@ export async function chat(
     return { reply, mode: 'live' };
   }
 
-  // Fallback path — try a scripted example first, then fall back to the
-  // menu-aware rule-based responder.
-  const scripted = matchScriptedExample(lastUser, mode);
-  if (scripted) return { reply: scripted, mode: 'fallback' };
+  // Fallback path — menu-aware responder first (handles veg/spice/price/etc),
+  // scripted greeting/thanks reply only when there's no menu intent.
   let reply = fallbackReply(history, dishes);
   if (mode === 'voice') reply = sanitizeForVoice(reply);
   return { reply, mode: 'fallback' };
 }
 
-// If a user utterance closely matches one of our scripted examples, return
-// that exact reply. Cheap, deterministic, and great for the voice fallback.
-function matchScriptedExample(userText: string, mode: ChatMode): string | null {
+// Word-boundary scripted match used by the menu-aware fallback when the
+// message is pure small-talk and has no menu intent. Strict thresholds so
+// "I want chicken" doesn't match "hi".
+function matchScriptedExample(userText: string, mode: ChatMode, allowedIntents?: Set<string>): string | null {
   if (!userText) return null;
   const t = userText.toLowerCase().trim();
   let best: { score: number; reply: string } | null = null;
   for (const ex of SCRIPTED_EXAMPLES) {
-    const eu = ex.user.toLowerCase();
+    if (allowedIntents && !allowedIntents.has(ex.intent)) continue;
+    const eu = ex.user.toLowerCase().trim();
     let score = 0;
     if (t === eu) score = 100;
-    else if (t.includes(eu) || eu.includes(t)) score = 60;
     else {
-      const words = eu.split(/\s+/).filter((w) => w.length > 2);
-      score = words.reduce((s, w) => s + (t.includes(w) ? 8 : 0), 0);
+      // Word-boundary check on the example utterance as a whole phrase.
+      const phraseRe = new RegExp(`(?:^|\\W)${escapeRegex(eu)}(?:\\W|$)`);
+      if (phraseRe.test(t)) score = 80;
+      else {
+        const words = eu.split(/\s+/).filter((w) => w.length > 2);
+        if (words.length === 0) continue;
+        const matched = words.filter((w) => new RegExp(`\\b${escapeRegex(w)}\\b`).test(t)).length;
+        score = (matched / words.length) * 60; // fractional match
+      }
     }
-    if (score >= 40 && (!best || score > best.score)) {
+    if (score >= 70 && (!best || score > best.score)) {
       best = { score, reply: mode === 'voice' ? ex.assistantVoice : ex.assistantText };
     }
   }
   return best ? best.reply : null;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Convert text/markdown output into TTS-friendly speech.
@@ -220,8 +230,7 @@ function parseIntent(text: string): Intent {
     spicy: 'any',
     mood: null,
     hungerLevel: null,
-    recommendAsk: /\b(recommend|suggest|whats good|what's good|what should|wyd|top picks?|popular|trending|bestseller|something good)\b/.test(t) ||
-                  /^(?:tell me )?(?:whats|what's|whats up|sup|hi|hello|hey)$/i.test(text.trim()),
+    recommendAsk: /\b(recommend|suggest|whats good|what's good|what should|wyd|top picks?|popular|trending|bestseller|something good|i am hungry|i'?m hungry|what to (eat|order))\b/.test(t),
     partySize: null,
     priceAsk: null,
   };
@@ -291,7 +300,7 @@ function filterMenu(dishes: Dish[], i: Intent): Dish[] {
   return dishes.filter((d) => {
     if (i.preferVeg === true && !d.isVeg) return false;
     if (i.preferVeg === false && d.isVeg) return false;
-    if (i.category && d.category !== i.category) return false;
+    if (i.category && !categoryMatches(d.category, i.category)) return false;
     if (i.maxPrice != null && d.price > i.maxPrice) return false;
     if (i.minPrice != null && d.price < i.minPrice) return false;
     if (i.spicy === 'spicy' && d.spiceLevel < 2) return false;
@@ -299,6 +308,21 @@ function filterMenu(dishes: Dish[], i: Intent): Dish[] {
     if (i.allergenAsk.length && d.allergens.some((a) => i.allergenAsk.includes(a))) return false;
     return true;
   });
+}
+
+// Schema changed from single "Biryani" / "Curries" categories to split
+// "Biryani — Non-Veg" / "Biryani — Veg" and "Curries — Non-Veg" / "Curries — Veg".
+// Treat the user-intent label as a prefix that matches any split.
+function categoryMatches(dishCategory: string, wanted: string): boolean {
+  const d = dishCategory.toLowerCase();
+  const w = wanted.toLowerCase();
+  if (d === w) return true;
+  // Strip the " — non-veg" / " — veg" suffix when matching the generic label
+  const dStripped = d.split(/[—-]/)[0].trim();
+  const wStripped = w.split(/[—-]/)[0].trim();
+  if (dStripped === wStripped) return true;
+  if (d.startsWith(w) || w.startsWith(d)) return true;
+  return false;
 }
 
 function formatDish(d: Dish): string {
@@ -311,6 +335,33 @@ function fallbackReply(history: ChatMsg[], dishes: Dish[]): string {
     return "Hey! Tell me what you're in the mood for — spicy, veg, under a budget, or just say 'recommend' and I'll pick for you.";
   }
   const i = parseIntent(last);
+
+  // If the user expressed any actionable food intent (dietary, category, price,
+  // mood, allergen, etc.) skip the greeting reply and go straight to the menu
+  // logic — even if they prefixed with "hi". The menu intent wins.
+  const hasMenuIntent =
+    i.preferVeg !== null ||
+    i.category !== null ||
+    i.maxPrice !== null || i.minPrice !== null ||
+    i.spicy !== 'any' ||
+    i.mood !== null ||
+    i.hungerLevel !== null ||
+    i.allergenAsk.length > 0 ||
+    i.priceAsk !== null ||
+    i.recommendAsk;
+
+  if (!hasMenuIntent) {
+    // Pure greeting / smalltalk / thanks / goodbye — pick a scripted reply
+    // restricted to those intents so we never accidentally return a recipe.
+    const scripted = matchScriptedExample(last, 'text', new Set(['greet','thanks','goodbye','smalltalk']));
+    if (scripted) return scripted;
+    if (i.greeting) {
+      return "Hey! I'm Lucky — I can recommend dishes, help you book a table, or answer menu questions. What are you craving?";
+    }
+    if (i.thanks) {
+      return "Any time. Want me to pick a starter or dessert to go with that?";
+    }
+  }
 
   // Price-of-X — try a few matching strategies
   if (i.priceAsk) {

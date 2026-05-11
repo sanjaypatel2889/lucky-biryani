@@ -6,10 +6,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config';
 import { prisma } from '../db';
+import {
+  TEXT_SYSTEM_PROMPT,
+  VOICE_SYSTEM_PROMPT,
+  pickExamples,
+  SCRIPTED_EXAMPLES,
+} from './luckyAi-script';
 
 const client = config.ai.enabled ? new Anthropic({ apiKey: config.ai.anthropicKey }) : null;
 
 export type ChatMsg = { role: 'user' | 'assistant'; content: string };
+export type ChatMode = 'text' | 'voice';
 
 type Dish = {
   id: string;
@@ -62,44 +69,113 @@ function menuAsText(dishes: Dish[]): string {
     .join('\n');
 }
 
-const SYSTEM_PROMPT = (menu: string) => `You are "Lucky AI", the personal food concierge for Lucky Biryani Centre, a single-restaurant Hyderabadi biryani spot in Banjara Hills, Hyderabad, est. 1978.
-
-Your job:
-- Recommend dishes from THE MENU BELOW based on the customer's mood, dietary needs, occasion, or hunger level.
-- Answer questions about allergens, spice level, prep time, price.
-- Suggest combos (biryani + side + dessert) when it fits.
-- Help with table bookings (party size 1-8, 30-min slots, 90-min hold).
-- Gently steer customers toward the Hyderabadi Chicken Biryani or Mutton Dum Biryani — they're the bestsellers.
-- If the customer asks for something not on the menu, politely say it's not on offer and suggest the closest match.
-
-Style: warm, concise (2-4 short sentences), zero corporate jargon. Use ₹ for prices. When listing items, format as a tight bullet list, max 5 items.
-
-THE MENU:
-${menu}
-
-Restaurant hours: 11 AM – 11 PM. Delivery radius ~6 km, free over ₹500. Coupons: FIRST50 (₹50 off first order, min ₹200), OFFPEAK10 (10% off, min ₹200), FREEDEL (free delivery, min ₹300).`;
-
-export async function chat(history: ChatMsg[]): Promise<{ reply: string; mode: 'live' | 'fallback' }> {
+export async function chat(
+  history: ChatMsg[],
+  mode: ChatMode = 'text',
+): Promise<{ reply: string; mode: 'live' | 'fallback' }> {
   const dishes = await loadMenu();
+  const menu = menuAsText(dishes);
+  const systemPrompt = mode === 'voice' ? VOICE_SYSTEM_PROMPT(menu) : TEXT_SYSTEM_PROMPT(menu);
+  const lastUser = [...history].reverse().find((m) => m.role === 'user')?.content ?? '';
 
   if (client) {
+    // Prepend a small set of relevant scripted examples as past turns so the
+    // model anchors on the right tone (especially in voice mode).
+    const examples = pickExamples(lastUser, mode, 6);
+    const seeded: ChatMsg[] = [];
+    for (const ex of examples) {
+      seeded.push({ role: 'user', content: ex.user });
+      seeded.push({ role: 'assistant', content: mode === 'voice' ? ex.assistantVoice : ex.assistantText });
+    }
+
     const r = await client.messages.create({
       model: config.ai.model,
-      max_tokens: 500,
+      max_tokens: mode === 'voice' ? 200 : 500,
       system: [
-        { type: 'text', text: SYSTEM_PROMPT(menuAsText(dishes)), cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
       ] as any,
-      messages: history.map((m) => ({ role: m.role, content: m.content })),
+      messages: [...seeded, ...history].map((m) => ({ role: m.role, content: m.content })),
     });
-    const reply = r.content
+    let reply = r.content
       .filter((b) => b.type === 'text')
       .map((b: any) => b.text)
       .join('\n');
+    if (mode === 'voice') reply = sanitizeForVoice(reply);
     return { reply, mode: 'live' };
   }
 
-  return { reply: fallbackReply(history, dishes), mode: 'fallback' };
+  // Fallback path — try a scripted example first, then fall back to the
+  // menu-aware rule-based responder.
+  const scripted = matchScriptedExample(lastUser, mode);
+  if (scripted) return { reply: scripted, mode: 'fallback' };
+  let reply = fallbackReply(history, dishes);
+  if (mode === 'voice') reply = sanitizeForVoice(reply);
+  return { reply, mode: 'fallback' };
 }
+
+// If a user utterance closely matches one of our scripted examples, return
+// that exact reply. Cheap, deterministic, and great for the voice fallback.
+function matchScriptedExample(userText: string, mode: ChatMode): string | null {
+  if (!userText) return null;
+  const t = userText.toLowerCase().trim();
+  let best: { score: number; reply: string } | null = null;
+  for (const ex of SCRIPTED_EXAMPLES) {
+    const eu = ex.user.toLowerCase();
+    let score = 0;
+    if (t === eu) score = 100;
+    else if (t.includes(eu) || eu.includes(t)) score = 60;
+    else {
+      const words = eu.split(/\s+/).filter((w) => w.length > 2);
+      score = words.reduce((s, w) => s + (t.includes(w) ? 8 : 0), 0);
+    }
+    if (score >= 40 && (!best || score > best.score)) {
+      best = { score, reply: mode === 'voice' ? ex.assistantVoice : ex.assistantText };
+    }
+  }
+  return best ? best.reply : null;
+}
+
+// Convert text/markdown output into TTS-friendly speech.
+function sanitizeForVoice(s: string): string {
+  let out = s;
+  out = out.replace(/[\*\_`#>]+/g, '');                 // markdown
+  out = out.replace(/^[\-•·]\s*/gm, '');      // leading bullets
+  out = out.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ''); // emojis
+  out = out.replace(/₹\s*(\d+)/g, (_, n) => `${spellOutRupees(Number(n))}`);
+  out = out.replace(/Rs\.?\s*(\d+)/gi, (_, n) => `${spellOutRupees(Number(n))}`);
+  out = out.replace(/\s+/g, ' ').trim();
+  // Cap to 3 sentences so the TTS reply stays short.
+  const sentences = out.match(/[^.!?]+[.!?]+/g) ?? [out];
+  return sentences.slice(0, 3).join(' ').trim();
+}
+
+function spellOutRupees(n: number): string {
+  return n === 0 ? 'free' : `${spellOutNumber(n)} rupees`;
+}
+
+function spellOutNumber(n: number): string {
+  if (n < 0 || !Number.isFinite(n)) return String(n);
+  if (n < 20) return ONES[n];
+  if (n < 100) {
+    const t = Math.floor(n / 10);
+    const r = n % 10;
+    return r === 0 ? TENS[t] : `${TENS[t]} ${ONES[r]}`;
+  }
+  if (n < 1000) {
+    const h = Math.floor(n / 100);
+    const r = n % 100;
+    return r === 0 ? `${ONES[h]} hundred` : `${ONES[h]} hundred and ${spellOutNumber(r)}`;
+  }
+  if (n < 100000) {
+    const t = Math.floor(n / 1000);
+    const r = n % 1000;
+    return r === 0 ? `${spellOutNumber(t)} thousand` : `${spellOutNumber(t)} thousand ${spellOutNumber(r)}`;
+  }
+  return String(n);
+}
+
+const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
 // ---------------------------------------------------------------------------
 // Rule-based responder. Parses intent then queries the live menu list so

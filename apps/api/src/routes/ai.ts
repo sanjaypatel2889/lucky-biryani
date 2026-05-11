@@ -22,11 +22,12 @@ aiRouter.post('/chat', async (req, res) => {
       role: z.enum(['user', 'assistant']),
       content: z.string().min(1).max(2000),
     })).min(1).max(20),
+    mode: z.enum(['text', 'voice']).optional(),
   }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'invalid_body' });
 
   try {
-    const result = await chat(body.data.messages);
+    const result = await chat(body.data.messages, body.data.mode ?? 'text');
     res.json(result);
   } catch (e: any) {
     console.error('[ai/chat]', e?.message);

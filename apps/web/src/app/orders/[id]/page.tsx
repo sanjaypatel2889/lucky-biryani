@@ -7,6 +7,8 @@ import { useWsTopic } from '@/lib/ws';
 import { useParams } from 'next/navigation';
 import { OrderMap } from '@/components/OrderMap';
 import { PushOptIn } from '@/components/PushOptIn';
+import { EtaCountdown } from '@/components/EtaCountdown';
+import { RiderChat } from '@/components/RiderChat';
 
 const STAGES = ['PAID', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
 const BRANCH = { lat: 17.385, lng: 78.4867, name: 'Lucky Biryani Centre' };
@@ -47,6 +49,9 @@ export default function OrderDetail() {
 
         <PushOptIn />
 
+        {/* Big ETA countdown — only shows while in-flight */}
+        <EtaCountdown orderId={order.id} status={order.status} />
+
         {/* Progress */}
         <div className="card p-4">
           <div className="flex items-center justify-between">
@@ -78,6 +83,11 @@ export default function OrderDetail() {
               <a className="btn-secondary mt-3 inline-flex" href={`tel:${order.rider.user.phone}`}>Call rider</a>
             )}
           </div>
+        )}
+
+        {/* Rider chat — once a rider is assigned and order isn't done */}
+        {order.rider && !['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(order.status) && (
+          <RiderChat orderId={order.id} myRole="CUSTOMER" />
         )}
 
         {/* Delivery OTP — show only after PAID and before DELIVERED for delivery orders */}

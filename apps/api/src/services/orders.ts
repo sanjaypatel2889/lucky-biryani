@@ -94,7 +94,14 @@ export async function transition(
 
   // Loyalty crediting on DELIVERED
   if (to === 'DELIVERED') {
-    const points = Math.floor(updated.total / 10);
+    let points = Math.floor(updated.total / 10);
+    // Lucky Club members earn 2× points
+    const u = await prisma.user.findUnique({
+      where: { id: updated.userId },
+      select: { membershipTier: true, membershipUntil: true },
+    });
+    const memberActive = u?.membershipUntil ? new Date(u.membershipUntil).getTime() > Date.now() : false;
+    if (memberActive && u?.membershipTier === 'CLUB') points *= 2;
     if (points > 0) {
       await prisma.user.update({
         where: { id: updated.userId },
@@ -102,7 +109,8 @@ export async function transition(
       });
       await prisma.loyaltyLedger.create({
         data: {
-          userId: updated.userId, delta: points, reason: 'ORDER_DELIVERED',
+          userId: updated.userId, delta: points,
+          reason: memberActive ? 'ORDER_DELIVERED_CLUB' : 'ORDER_DELIVERED',
           refOrderId: updated.id, createdAt: now(),
         },
       });

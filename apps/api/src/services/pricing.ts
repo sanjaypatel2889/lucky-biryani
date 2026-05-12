@@ -21,6 +21,7 @@ export type QuoteInput = {
   couponCode?: string;
   loyaltyPointsToUse?: number;
   weatherSurcharge?: boolean; // injected by automation when raining
+  userId?: string;            // when present, member perks apply automatically
 };
 
 export type Quote = {
@@ -38,16 +39,36 @@ export type Quote = {
   deliveryFee: number;
   weatherFee: number;
   discount: number;
+  memberDiscount: number;     // Lucky Club discount (in addition to coupon)
   loyaltyUsed: number;
   total: number;
   distanceKm?: number;
   prepMinutes: number;
   errors: string[];
   couponCode?: string;
+  memberPerksApplied?: { freeDelivery: boolean; discountPct: number };
 };
 
 export async function buildQuote(input: QuoteInput): Promise<Quote> {
   const errors: string[] = [];
+
+  // Resolve active Lucky Club membership for the user, if any. The perks are
+  // bundled on the plan but for the demo we only ever issue CLUB-tier so the
+  // hardcoded rates here mirror the plan rows. If you change plan numbers,
+  // update both — or fetch the plan row instead.
+  let memberFreeDelivery = false;
+  let memberDiscountPct = 0;
+  if (input.userId) {
+    const u = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { membershipTier: true, membershipUntil: true },
+    });
+    const active = u?.membershipUntil ? new Date(u.membershipUntil).getTime() > Date.now() : false;
+    if (active && u?.membershipTier === 'CLUB') {
+      memberFreeDelivery = true;
+      memberDiscountPct = 0.05;
+    }
+  }
 
   if (!input.cart.length) errors.push('cart_empty');
 
@@ -116,6 +137,8 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
         errors.push(`out_of_zone:${distanceKm.toFixed(2)}km`);
       deliveryFee = config.delivery.baseFee + Math.max(0, distanceKm - 1) * config.delivery.perKmFee;
       if (subtotal >= config.delivery.freeDeliveryAt) deliveryFee = 0;
+      // Lucky Club: free delivery on any order, any distance (subject to zone)
+      if (memberFreeDelivery) deliveryFee = 0;
     }
   }
 
@@ -151,10 +174,16 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
   // Loyalty (1 point = ₹1, max 20% of subtotal)
   const loyaltyUsed = Math.min(input.loyaltyPointsToUse ?? 0, Math.floor(subtotal * 0.2));
 
-  const total = Math.max(0, subtotal + tax + deliveryFee + weatherFee - discount - loyaltyUsed);
+  // Lucky Club member discount on the subtotal (stacks with coupon)
+  const memberDiscount = memberDiscountPct > 0 ? Math.round(subtotal * memberDiscountPct) : 0;
+
+  const total = Math.max(0, subtotal + tax + deliveryFee + weatherFee - discount - memberDiscount - loyaltyUsed);
 
   return {
-    lines, subtotal, tax, deliveryFee, weatherFee, discount, loyaltyUsed,
+    lines, subtotal, tax, deliveryFee, weatherFee, discount, memberDiscount, loyaltyUsed,
     total, distanceKm, prepMinutes: prepMax, errors, couponCode: appliedCode,
+    memberPerksApplied: memberFreeDelivery || memberDiscountPct > 0
+      ? { freeDelivery: memberFreeDelivery, discountPct: memberDiscountPct }
+      : undefined,
   };
 }

@@ -5,6 +5,11 @@ import { Marquee } from '@/components/Marquee';
 import { Counter } from '@/components/Counter';
 import { BranchReviews } from '@/components/BranchReviews';
 import { DishImage } from '@/components/DishImage';
+import { OrderAgainRail } from '@/components/OrderAgainRail';
+import { LiveCueBar } from '@/components/LiveCueBar';
+import { PickedForYouRail } from '@/components/PickedForYouRail';
+import { BusyIndicator } from '@/components/BusyIndicator';
+import { Onboarding } from '@/components/Onboarding';
 import { dishPhoto, HERO, STORY, SPICES, RESTAURANT } from '@/lib/photos';
 
 const SERVER_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
@@ -98,6 +103,12 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* FIRST-VISIT ONBOARDING ============================================ */}
+      <Onboarding />
+
+      {/* LIVE CUE BAR ======================================================= */}
+      <LiveCueBar />
+
       {/* MARQUEE STRIP ====================================================== */}
       <section className="border-y border-brand-200 bg-brand-700 py-4 text-cream">
         <Marquee items={[
@@ -110,6 +121,12 @@ export default async function Home() {
           <span key="7" className="display text-xl italic">Open 7 days</span>,
         ]} />
       </section>
+
+      {/* ORDER AGAIN RAIL — visible only to returning customers ============== */}
+      <OrderAgainRail />
+
+      {/* PICKED FOR YOU — personalized rail for logged-in users ============== */}
+      <PickedForYouRail />
 
       {/* STORY ============================================================== */}
       <section className="mx-auto max-w-7xl px-4 py-24 md:py-32">

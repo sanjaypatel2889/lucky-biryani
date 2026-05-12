@@ -7,6 +7,9 @@ import { newOrderNumber } from '../util/ids';
 import { payments } from '../services/payments';
 import { transition } from '../services/orders';
 import { bus } from '../realtime';
+import { haversineKm } from '../util/geo';
+import { config } from '../config';
+import { suggestUpsells } from '../services/upsells';
 
 function randomOtp() {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -35,7 +38,7 @@ orderRouter.post('/quote', async (req, res) => {
     })
     .safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'invalid_body', detail: body.error.issues });
-  const q = await buildQuote(body.data);
+  const q = await buildQuote({ ...body.data, userId: req.user?.id });
   res.json(q);
 });
 
@@ -56,6 +59,14 @@ orderRouter.post('/', requireAuth(), async (req, res) => {
       loyaltyPointsToUse: z.number().int().nonnegative().optional(),
       notes: z.string().optional(),
       scheduledFor: z.string().datetime().optional(), // ISO timestamp
+      // Delivery preferences set at checkout
+      contactless: z.boolean().optional(),
+      dontRingBell: z.boolean().optional(),
+      leaveAtDoor: z.boolean().optional(),
+      noCutlery: z.boolean().optional(),
+      deliveryNote: z.string().max(300).optional(),
+      // Optional rider tip set at checkout (still mutable later via /tip)
+      riderTip: z.number().int().min(0).max(2000).optional(),
     })
     .safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'invalid_body', detail: body.error.issues });
@@ -74,6 +85,7 @@ orderRouter.post('/', requireAuth(), async (req, res) => {
     branchId: b.branchId, type: b.type, cart: b.cart,
     destination: b.address && { lat: b.address.lat, lng: b.address.lng },
     couponCode: b.couponCode, loyaltyPointsToUse: b.loyaltyPointsToUse,
+    userId: req.user!.id,
   });
   if (q.errors.length) return res.status(400).json({ error: 'quote_failed', detail: q.errors });
 
@@ -101,6 +113,7 @@ orderRouter.post('/', requireAuth(), async (req, res) => {
       deliveryFee: q.deliveryFee,
       weatherFee: q.weatherFee,
       discount: q.discount,
+      memberDiscount: q.memberDiscount,
       loyaltyUsed: q.loyaltyUsed,
       total: q.total,
       couponCode: q.couponCode,
@@ -111,6 +124,12 @@ orderRouter.post('/', requireAuth(), async (req, res) => {
       lng: b.address?.lng,
       scheduledFor: b.scheduledFor ?? null,
       deliveryOtp: b.type === 'DELIVERY' ? randomOtp() : null,
+      contactless: !!b.contactless,
+      dontRingBell: !!b.dontRingBell,
+      leaveAtDoor: !!b.leaveAtDoor,
+      noCutlery: !!b.noCutlery,
+      deliveryNote: b.deliveryNote ?? null,
+      riderTip: b.riderTip ?? 0,
       createdAt: now(),
       updatedAt: now(),
       items: {
@@ -236,6 +255,119 @@ orderRouter.post('/:id/tip', requireAuth(), async (req, res) => {
     data: { riderTip: body.data.amount, updatedAt: now() },
   });
   res.json({ order: { id: updated.id, riderTip: updated.riderTip } });
+});
+
+// Live ETA — given an order in progress, returns the best estimate of when it
+// will reach the customer. Uses prep minutes for kitchen states, then
+// straight-line distance / average rider speed for the delivery leg.
+orderRouter.get('/:id/eta', requireAuth(), async (req, res) => {
+  const o = await prisma.order.findUnique({
+    where: { id: req.params.id },
+    include: { items: { include: { item: true } }, rider: true },
+  });
+  if (!o) return res.status(404).json({ error: 'not_found' });
+  if (o.userId !== req.user!.id && !['ADMIN', 'OWNER', 'RIDER'].includes(req.user!.role)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const RIDER_SPEED_KMH = 22; // realistic city scooter average
+  const PICKUP_OVERHEAD_MIN = 3;
+
+  // Kitchen leg — longest prep time among items still pending
+  const maxPrep = Math.max(0, ...o.items.map((i) => i.item.prepMinutes));
+  const elapsed = (Date.now() - new Date(o.createdAt).getTime()) / 60_000;
+
+  let prepRemaining = 0;
+  if (['PAID', 'ACCEPTED'].includes(o.status)) prepRemaining = Math.max(0, maxPrep - elapsed);
+  else if (o.status === 'PREPARING') prepRemaining = Math.max(0, maxPrep - elapsed) * 0.5;
+  // READY/OUT_FOR_DELIVERY/DELIVERED → 0
+
+  // Delivery leg — distance × speed
+  let deliveryMin = 0;
+  let distanceKm: number | undefined;
+  if (o.type === 'DELIVERY' && o.lat != null && o.lng != null) {
+    const from = o.rider?.lastLat && o.rider?.lastLng
+      ? { lat: o.rider.lastLat, lng: o.rider.lastLng }
+      : { lat: config.branch.lat, lng: config.branch.lng };
+    distanceKm = haversineKm(from, { lat: o.lat, lng: o.lng });
+    deliveryMin = (distanceKm / RIDER_SPEED_KMH) * 60;
+    if (o.status !== 'OUT_FOR_DELIVERY') deliveryMin += PICKUP_OVERHEAD_MIN;
+  }
+
+  const totalMin = Math.round(prepRemaining + deliveryMin);
+  res.json({
+    minutesRemaining: totalMin,
+    arrivalAt: new Date(Date.now() + totalMin * 60_000).toISOString(),
+    distanceKm: distanceKm != null ? Math.round(distanceKm * 10) / 10 : undefined,
+    breakdown: {
+      prepRemaining: Math.round(prepRemaining),
+      deliveryMin: Math.round(deliveryMin),
+    },
+  });
+});
+
+// Cart upsell — given the current cart, suggest 3 add-ons (drink, bread,
+// dessert) that pair with what's already in. Purely server-side so the
+// suggestion logic stays consistent with menu data.
+orderRouter.post('/upsells', async (req, res) => {
+  const body = z
+    .object({
+      cart: z.array(z.object({ itemId: z.string(), qty: z.number().int().positive() })),
+    })
+    .safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: 'invalid_body' });
+  const items = await suggestUpsells(body.data.cart.map((c) => c.itemId));
+  res.json({ items });
+});
+
+// ----------------- Chat (customer <-> rider, scoped to one order) -----------
+
+orderRouter.get('/:id/chat', requireAuth(), async (req, res) => {
+  const o = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!o) return res.status(404).json({ error: 'not_found' });
+  const role = req.user!.role;
+  const ridersUserId = o.riderId
+    ? (await prisma.rider.findUnique({ where: { id: o.riderId } }))?.userId
+    : null;
+  const allowed =
+    o.userId === req.user!.id ||
+    ridersUserId === req.user!.id ||
+    ['ADMIN', 'OWNER'].includes(role);
+  if (!allowed) return res.status(403).json({ error: 'forbidden' });
+  const msgs = await prisma.chatMessage.findMany({
+    where: { orderId: o.id },
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+  });
+  res.json({ messages: msgs });
+});
+
+orderRouter.post('/:id/chat', requireAuth(), async (req, res) => {
+  const body = z.object({ body: z.string().min(1).max(500) }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: 'invalid_body' });
+  const o = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!o) return res.status(404).json({ error: 'not_found' });
+  const role = req.user!.role;
+  const ridersUserId = o.riderId
+    ? (await prisma.rider.findUnique({ where: { id: o.riderId } }))?.userId
+    : null;
+  let fromRole: 'CUSTOMER' | 'RIDER' | null = null;
+  if (o.userId === req.user!.id) fromRole = 'CUSTOMER';
+  else if (ridersUserId === req.user!.id) fromRole = 'RIDER';
+  if (!fromRole) return res.status(403).json({ error: 'not_party_to_order' });
+
+  const msg = await prisma.chatMessage.create({
+    data: {
+      orderId: o.id,
+      fromUserId: req.user!.id,
+      fromRole,
+      body: body.data.body,
+      createdAt: now(),
+    },
+  });
+  // Fan-out via WebSocket so both ends see it live
+  bus.emit(`order:${o.id}`, { type: 'chat', message: msg });
+  res.json({ message: msg });
 });
 
 orderRouter.post('/:id/reorder', requireAuth(), async (req, res) => {

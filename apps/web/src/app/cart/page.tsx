@@ -2,20 +2,23 @@
 
 import { Header } from '@/components/Header';
 import { useCart } from '@/lib/cart-store';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
 import { LoginModal } from '@/components/LoginModal';
+import { AddressPicker, type Address } from '@/components/AddressPicker';
+import { UpsellRail } from '@/components/UpsellRail';
 
 type Quote = {
   subtotal: number; tax: number; deliveryFee: number; weatherFee: number;
-  discount: number; loyaltyUsed: number; total: number;
+  discount: number; memberDiscount: number; loyaltyUsed: number; total: number;
   distanceKm?: number; prepMinutes: number; errors: string[]; couponCode?: string;
+  memberPerksApplied?: { freeDelivery: boolean; discountPct: number };
 };
 
 export default function CartPage() {
-  const { lines, setQty, remove, clear } = useCart();
+  const { lines, setQty, remove, clear, add } = useCart();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -25,15 +28,20 @@ export default function CartPage() {
   const [points, setPoints] = useState(0);
   const [scheduleMode, setScheduleMode] = useState<'now' | 'later'>('now');
   const [scheduledFor, setScheduledFor] = useState<string>('');
-  const [address, setAddress] = useState({
-    line1: '12-3-456, Road No 1', line2: 'Jubilee Hills',
-    pincode: '500033', lat: 17.4239, lng: 78.4738,
-  });
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [branchId, setBranchId] = useState<string | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
+
+  // Delivery preferences
+  const [contactless, setContactless] = useState(false);
+  const [dontRingBell, setDontRingBell] = useState(false);
+  const [leaveAtDoor, setLeaveAtDoor] = useState(false);
+  const [noCutlery, setNoCutlery] = useState(false);
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [tip, setTip] = useState(0);
 
   useEffect(() => {
     api<{ branch: any }>('/api/v1/menu/branch').then((r) => setBranchId(r.branch?.id ?? null));
@@ -46,16 +54,20 @@ export default function CartPage() {
       method: 'POST',
       body: JSON.stringify({
         branchId, type, cart,
-        destination: type === 'DELIVERY' ? { lat: address.lat, lng: address.lng } : undefined,
+        destination: type === 'DELIVERY' && selectedAddress ? { lat: selectedAddress.lat, lng: selectedAddress.lng } : undefined,
         couponCode: coupon || undefined,
         loyaltyPointsToUse: points,
       }),
     }).then(setQuote).catch(() => setQuote(null));
-  }, [branchId, lines, type, address, coupon, points]);
+  }, [branchId, lines, type, selectedAddress, coupon, points]);
 
   async function placeOrder() {
     if (!user) { setLoginOpen(true); return; }
     if (!branchId || !quote) return;
+    if (type === 'DELIVERY' && !selectedAddress) {
+      setErr('Pick a delivery address first');
+      return;
+    }
     setBusy(true); setErr('');
     try {
       const cart = lines.map((l) => ({ itemId: l.itemId, qty: l.qty, modifierIds: l.modifierIds, notes: l.notes }));
@@ -66,14 +78,25 @@ export default function CartPage() {
         method: 'POST',
         body: JSON.stringify({
           branchId, type, paymentMode, cart,
-          address: type === 'DELIVERY' ? address : undefined,
+          address: type === 'DELIVERY' && selectedAddress ? {
+            line1: selectedAddress.line1,
+            line2: selectedAddress.line2,
+            pincode: selectedAddress.pincode,
+            lat: selectedAddress.lat,
+            lng: selectedAddress.lng,
+          } : undefined,
           couponCode: coupon || undefined,
           loyaltyPointsToUse: points,
           scheduledFor: sched,
+          contactless, dontRingBell, leaveAtDoor, noCutlery,
+          deliveryNote: deliveryNote.trim() || undefined,
+          riderTip: tip || undefined,
         }),
       });
       if (paymentMode === 'ONLINE') {
-        // simulate Razorpay popup with a stub confirmation in dev
+        // Dev stub: skip Razorpay UI and confirm directly. Real Razorpay
+        // checkout calls back with the signed payload; the verify endpoint
+        // will check HMAC when keys are configured.
         await api(`/api/v1/orders/${r.order.id}/confirm-payment`, {
           method: 'POST',
           body: JSON.stringify({
@@ -128,6 +151,14 @@ export default function CartPage() {
             ))}
           </ul>
 
+          {/* Upsell rail — server-suggested add-ons */}
+          <UpsellRail cartItemIds={lines.map((l) => l.itemId)} onAdd={(item) => {
+            add({
+              itemId: item.id, name: item.name, qty: 1,
+              unitPrice: item.basePrice, modifierIds: [], modifierLabels: [],
+            });
+          }} />
+
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="card p-4">
               <h3 className="font-medium">How would you like it?</h3>
@@ -139,11 +170,8 @@ export default function CartPage() {
                 ))}
               </div>
               {type === 'DELIVERY' && (
-                <div className="mt-3 space-y-2">
-                  <input className="input" placeholder="Address line 1" value={address.line1} onChange={(e) => setAddress({...address, line1: e.target.value})} />
-                  <input className="input" placeholder="Address line 2" value={address.line2} onChange={(e) => setAddress({...address, line2: e.target.value})} />
-                  <input className="input" placeholder="Pincode" value={address.pincode} onChange={(e) => setAddress({...address, pincode: e.target.value})} />
-                  <p className="text-xs text-slate-400">Lat/lng saved from current address: {address.lat.toFixed(4)}, {address.lng.toFixed(4)}</p>
+                <div className="mt-3">
+                  <AddressPicker selected={selectedAddress} onSelect={setSelectedAddress} />
                 </div>
               )}
             </div>
@@ -170,7 +198,48 @@ export default function CartPage() {
               )}
             </div>
 
-            <div className="card p-4">
+            {type === 'DELIVERY' && (
+              <div className="card p-4 md:col-span-2">
+                <h3 className="font-medium">Delivery preferences</h3>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <Toggle on={contactless}  onChange={setContactless}  label="Contactless delivery" hint="Rider leaves at door, knocks, steps back." />
+                  <Toggle on={dontRingBell} onChange={setDontRingBell} label="Don't ring bell"      hint="Sleeping baby / late night order." />
+                  <Toggle on={leaveAtDoor}  onChange={setLeaveAtDoor}  label="Leave at door"        hint="OTP-verified hand-off skipped." />
+                  <Toggle on={noCutlery}    onChange={setNoCutlery}    label="Skip cutlery"         hint="We bring our own. Saves plastic." />
+                </div>
+                <div className="mt-3">
+                  <label className="label">Note for the rider (optional)</label>
+                  <input
+                    className="input"
+                    value={deliveryNote}
+                    onChange={(e) => setDeliveryNote(e.target.value)}
+                    placeholder="Gate 2 · Flat 304 · Ring after 6 PM"
+                    maxLength={300}
+                  />
+                </div>
+
+                <div className="mt-4 border-t border-stone-100 pt-3">
+                  <div className="flex items-baseline justify-between">
+                    <label className="label !mb-0">Tip your rider</label>
+                    <span className="text-xs text-stone-400">100% goes to your rider</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[0, 20, 30, 50, 100].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTip(amt)}
+                        className={`rounded-full border px-3 py-1.5 text-sm transition ${tip === amt ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-stone-200 bg-white text-stone-700 hover:border-brand-300'}`}
+                      >
+                        {amt === 0 ? 'No tip' : `₹${amt}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="card p-4 md:col-span-2">
               <h3 className="font-medium">Payment</h3>
               <div className="mt-2 flex gap-2">
                 {(['ONLINE','COD'] as const).map((p) => (
@@ -180,23 +249,34 @@ export default function CartPage() {
                 ))}
               </div>
 
-              <div className="mt-3">
-                <label className="label">Coupon code</label>
-                <input className="input" value={coupon} onChange={(e) => setCoupon(e.target.value)} placeholder="FIRST50" />
-              </div>
-
-              {user && (user.loyaltyPoints ?? 0) > 0 && (
-                <div className="mt-3">
-                  <label className="label">Use loyalty points (you have {user.loyaltyPoints})</label>
-                  <input type="number" className="input" min={0} max={user.loyaltyPoints}
-                         value={points} onChange={(e) => setPoints(Math.max(0, Math.min(user.loyaltyPoints!, Number(e.target.value))))} />
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">Coupon code</label>
+                  <input className="input" value={coupon} onChange={(e) => setCoupon(e.target.value)} placeholder="FIRST50" />
                 </div>
-              )}
+                {user && (user.loyaltyPoints ?? 0) > 0 && (
+                  <div>
+                    <label className="label">Use loyalty points ({user.loyaltyPoints} available)</label>
+                    <input type="number" className="input" min={0} max={user.loyaltyPoints}
+                           value={points} onChange={(e) => setPoints(Math.max(0, Math.min(user.loyaltyPoints!, Number(e.target.value))))} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
 
-        <aside className="md:sticky md:top-20 md:self-start">
+        <aside className="md:sticky md:top-20 md:self-start space-y-3">
+          {quote && !quote.memberPerksApplied && quote.subtotal >= 200 && user && (
+            <a
+              href="/club"
+              className="block rounded-xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 p-3 text-sm text-white shadow-md hover:opacity-95"
+            >
+              <div className="text-xs uppercase tracking-[0.15em] opacity-80">★ Lucky Club</div>
+              <div className="mt-0.5 font-semibold">Save ₹{Math.max(0, Math.round(quote.subtotal * 0.05) + quote.deliveryFee)} on this order with Lucky Club →</div>
+              <div className="text-[11px] opacity-80">Free delivery + 5% off · ₹199/mo</div>
+            </a>
+          )}
           <div className="card p-4">
             <h3 className="font-medium">Order summary</h3>
             {!quote ? <p className="mt-2 text-sm text-slate-500">Calculating…</p> : (
@@ -206,9 +286,11 @@ export default function CartPage() {
                 {quote.deliveryFee > 0 && <Row k={`Delivery${quote.distanceKm ? ` (${quote.distanceKm.toFixed(1)} km)` : ''}`} v={`₹${quote.deliveryFee.toFixed(0)}`} />}
                 {quote.weatherFee > 0 && <Row k="Weather fee" v={`₹${quote.weatherFee}`} />}
                 {quote.discount > 0 && <Row k={`Discount${quote.couponCode ? ` (${quote.couponCode})` : ''}`} v={`−₹${quote.discount.toFixed(0)}`} />}
+                {quote.memberDiscount > 0 && <Row k="★ Lucky Club discount" v={`−₹${quote.memberDiscount.toFixed(0)}`} />}
                 {quote.loyaltyUsed > 0 && <Row k="Loyalty points" v={`−₹${quote.loyaltyUsed}`} />}
+                {tip > 0 && <Row k="Rider tip" v={`₹${tip}`} />}
                 <hr className="my-2" />
-                <Row k={<strong>Total</strong>} v={<strong>₹{quote.total.toFixed(0)}</strong>} />
+                <Row k={<strong>Total</strong>} v={<strong>₹{(quote.total + tip).toFixed(0)}</strong>} />
                 {quote.errors.length > 0 && (
                   <div className="mt-2 space-y-1 rounded bg-rose-50 p-2 text-xs text-rose-700">
                     {quote.errors.map((e) => <div key={e}>⚠ {e}</div>)}
@@ -219,8 +301,8 @@ export default function CartPage() {
             <button
               className="btn-primary mt-4 w-full"
               onClick={placeOrder}
-              disabled={!quote || quote.errors.length > 0 || busy}>
-              {busy ? 'Placing…' : (paymentMode === 'COD' ? 'Place order (COD)' : `Pay ₹${quote?.total.toFixed(0) ?? ''}`)}
+              disabled={!quote || quote.errors.length > 0 || busy || (type === 'DELIVERY' && !selectedAddress)}>
+              {busy ? 'Placing…' : (paymentMode === 'COD' ? `Place order (COD) · ₹${quote ? (quote.total + tip).toFixed(0) : ''}` : `Pay ₹${quote ? (quote.total + tip).toFixed(0) : ''}`)}
             </button>
             {err && <p className="mt-2 text-xs text-rose-600">⚠ {err}</p>}
             <p className="mt-2 text-xs text-slate-400">By placing this order, you agree to our terms.</p>
@@ -235,5 +317,17 @@ export default function CartPage() {
 function Row({ k, v }: { k: any; v: any }) {
   return (
     <div className="flex justify-between"><dt className="text-slate-600">{k}</dt><dd>{v}</dd></div>
+  );
+}
+
+function Toggle({ on, onChange, label, hint }: { on: boolean; onChange: (b: boolean) => void; label: string; hint?: string }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 hover:border-brand-200 hover:bg-brand-50/30">
+      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-brand-600" />
+      <div>
+        <div className="text-sm font-medium text-stone-800">{label}</div>
+        {hint && <div className="text-[11px] text-stone-500">{hint}</div>}
+      </div>
+    </label>
   );
 }

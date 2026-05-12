@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { api } from '@/lib/api';
 import { useCart } from '@/lib/cart-store';
+import { useAuth } from '@/lib/auth-store';
 import { dishPhoto } from '@/lib/photos';
 import { DishImage } from '@/components/DishImage';
+import { CollectionsRails } from '@/components/CollectionsRails';
+import { BusyIndicator } from '@/components/BusyIndicator';
 
 type Modifier = { id: string; name: string; priceDelta: number };
 type ModifierGroup = {
@@ -18,15 +21,35 @@ type MenuItem = {
   isVeg: boolean; spiceLevel: number; available: boolean;
   prepMinutes: number; modifierGroups: ModifierGroup[];
   imageUrl?: string | null;
+  gallery?: string[];
   allergens?: string[]; calories?: number | null;
+  dietaryTags?: string[];
   isBestseller?: boolean; isTrending?: boolean;
   ratingAvg?: number | null; ratingCount?: number;
 };
 
 const ALLERGENS = ['milk', 'gluten', 'egg', 'tree-nuts', 'crustaceans', 'soy'];
+const DIETARY_TAGS: Array<{ id: string; label: string; emoji: string }> = [
+  { id: 'vegan',             label: 'Vegan',        emoji: '🌱' },
+  { id: 'jain',              label: 'Jain',         emoji: '🪷' },
+  { id: 'eggless',           label: 'Eggless',      emoji: '🥚' },
+  { id: 'halal',             label: 'Halal',        emoji: '✓' },
+  { id: 'gluten-free',       label: 'Gluten-free',  emoji: '🌾' },
+  { id: 'diabetic-friendly', label: 'Diabetic-friendly', emoji: '💚' },
+];
+const SORT_OPTIONS = [
+  { id: 'default',    label: 'Recommended' },
+  { id: 'popular',    label: 'Most popular' },
+  { id: 'price-asc',  label: 'Price: low → high' },
+  { id: 'price-desc', label: 'Price: high → low' },
+  { id: 'rating',     label: 'Highest rated' },
+  { id: 'prep',       label: 'Fastest prep' },
+];
+
 type Category = { id: string; name: string; slug: string };
 
 export default function MenuPage() {
+  const { user } = useAuth();
   const [cats, setCats] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [activeCat, setActiveCat] = useState<string | null>(null);
@@ -36,14 +59,55 @@ export default function MenuPage() {
   const [maxPrice, setMaxPrice] = useState(500);
   const [exclude, setExclude] = useState<string[]>([]);
   const [picking, setPicking] = useState<MenuItem | null>(null);
+  const [dietary, setDietary] = useState<string[]>([]);
+  const [sort, setSort] = useState<string>('default');
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     api<{ categories: Category[] }>('/api/v1/menu/categories').then((r) => {
       setCats(r.categories);
       if (r.categories[0]) setActiveCat(r.categories[0].id);
     });
-    api<{ items: MenuItem[] }>('/api/v1/menu/items').then((r) => setItems(r.items));
   }, []);
+
+  // Refetch items when server-side filters change (dietary tags + sort go
+  // through the API; everything else is client-side over the same dataset).
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (dietary.length) params.set('tags', dietary.join(','));
+    if (sort !== 'default') params.set('sort', sort);
+    const qs = params.toString();
+    api<{ items: MenuItem[] }>(`/api/v1/menu/items${qs ? `?${qs}` : ''}`).then((r) => setItems(r.items));
+  }, [dietary, sort]);
+
+  // Load user's favorite item IDs on login
+  useEffect(() => {
+    if (!user) { setFavIds(new Set()); return; }
+    api<{ ids: string[] }>('/api/v1/favorites/ids').then((r) => setFavIds(new Set(r.ids))).catch(() => {});
+  }, [user?.id]);
+
+  async function toggleFavorite(itemId: string) {
+    if (!user) return;
+    const isFav = favIds.has(itemId);
+    // Optimistic
+    setFavIds((cur) => {
+      const next = new Set(cur);
+      if (isFav) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+    try {
+      await api(`/api/v1/favorites/${itemId}`, { method: isFav ? 'DELETE' : 'POST' });
+    } catch {
+      // Revert on failure
+      setFavIds((cur) => {
+        const next = new Set(cur);
+        if (isFav) next.add(itemId);
+        else next.delete(itemId);
+        return next;
+      });
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -86,7 +150,18 @@ export default function MenuPage() {
             Pick what you crave. <em className="italic font-medium text-gold">We'll handle the rest.</em>
           </h1>
           <p className="mt-3 max-w-xl text-white/70">19 dishes, every one of them customisable. Spice levels go from "just warm" to "I'll regret this later".</p>
+          <div className="mt-4"><BusyIndicator inline /></div>
         </div>
+      </section>
+
+      {/* Curated collection rails */}
+      <section className="mx-auto max-w-7xl px-4 pt-6">
+        <CollectionsRails
+          onPick={(itemId) => {
+            const it = items.find((i) => i.id === itemId);
+            if (it) setPicking(it);
+          }}
+        />
       </section>
 
       <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 md:grid-cols-[260px_1fr]">
@@ -106,6 +181,31 @@ export default function MenuPage() {
                 Veg only
               </span>
             </label>
+
+            <div>
+              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500">Dietary</div>
+              <div className="flex flex-wrap gap-1.5">
+                {DIETARY_TAGS.map((d) => {
+                  const on = dietary.includes(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => setDietary((cur) => on ? cur.filter((x) => x !== d.id) : [...cur, d.id])}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${on ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-emerald-200'}`}
+                    >
+                      <span className="mr-1">{d.emoji}</span>{d.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500">Sort</div>
+              <select className="input !py-1.5 text-sm" value={sort} onChange={(e) => setSort(e.target.value)}>
+                {SORT_OPTIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </div>
 
             <div>
               <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-stone-500">
@@ -192,6 +292,15 @@ export default function MenuPage() {
                         {!i.isBestseller && i.isTrending && (
                           <span className="absolute left-1.5 top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">🔥 Trending</span>
                         )}
+                        {user && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(i.id); }}
+                            className={`absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full backdrop-blur-sm transition ${favIds.has(i.id) ? 'bg-rose-500 text-white shadow' : 'bg-white/90 text-stone-500 hover:bg-white hover:text-rose-500'}`}
+                            aria-label={favIds.has(i.id) ? 'Remove from favorites' : 'Save to favorites'}
+                          >
+                            {favIds.has(i.id) ? '♥' : '♡'}
+                          </button>
+                        )}
                       </div>
                       <div className="flex flex-1 flex-col">
                         <div className="flex items-start gap-2">
@@ -244,6 +353,18 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
+  const [photoIdx, setPhotoIdx] = useState(0);
+
+  // Build gallery from server + fallback to dishPhoto so there's always at
+  // least one image. De-dupe so we don't show the same photo twice.
+  const photos = useMemo(() => {
+    const list = [item.imageUrl, ...(item.gallery ?? [])].filter(Boolean) as string[];
+    if (list.length === 0) {
+      const f = dishPhoto(item.name, item.categoryName);
+      if (f) list.push(f);
+    }
+    return Array.from(new Set(list));
+  }, [item]);
 
   function toggle(g: ModifierGroup, mid: string) {
     setSelected((prev) => {
@@ -282,13 +403,39 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/60 backdrop-blur-sm sm:items-center" onClick={onClose}>
       <div className="card relative w-full max-w-lg overflow-hidden p-0 sm:max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="relative h-48 overflow-hidden">
-          <DishImage src={dishPhoto(item.name, item.categoryName)} name={item.name} category={item.categoryName} className="h-full w-full object-cover" />
+        <div className="relative h-56 overflow-hidden">
+          <DishImage src={photos[photoIdx] ?? dishPhoto(item.name, item.categoryName)} name={item.name} category={item.categoryName} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-stone-950/70 via-transparent to-transparent" />
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={() => setPhotoIdx((i) => (i - 1 + photos.length) % photos.length)}
+                className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-stone-700 shadow hover:bg-white"
+                aria-label="Previous photo"
+              >‹</button>
+              <button
+                onClick={() => setPhotoIdx((i) => (i + 1) % photos.length)}
+                className="absolute right-14 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-stone-700 shadow hover:bg-white"
+                aria-label="Next photo"
+              >›</button>
+              <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+                {photos.map((_, i) => (
+                  <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === photoIdx ? 'bg-white' : 'bg-white/40'}`} />
+                ))}
+              </div>
+            </>
+          )}
           <button onClick={onClose} className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-stone-700 shadow hover:bg-white">✕</button>
-          <div className="absolute bottom-3 left-4 right-4">
+          <div className="absolute bottom-6 left-4 right-4">
             <h3 className="display text-2xl font-bold text-white drop-shadow">{item.name}</h3>
             <p className="text-sm text-white/85">{item.description}</p>
+            {(item.dietaryTags && item.dietaryTags.length > 0) && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {item.dietaryTags.slice(0, 5).map((t) => (
+                  <span key={t} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white backdrop-blur">{t}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

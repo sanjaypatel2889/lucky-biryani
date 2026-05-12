@@ -67,12 +67,21 @@ export async function pickBestTable(args: {
   partySize: number;
   slotStart: string;
   slotEnd: string;
+  preferredZone?: string;
 }) {
-  const tables = await prisma.table.findMany({
+  const allTables = await prisma.table.findMany({
     where: { branchId: args.branchId, isActive: true, capacity: { gte: args.partySize } },
     orderBy: { capacity: 'asc' }, // smallest fit wins (doc §4.1.1.6)
   });
-  for (const t of tables) {
+  // If the customer expressed a zone preference, try that zone first; if no
+  // table in that zone is free we fall back to any zone so we don't block.
+  const ordered = args.preferredZone
+    ? [
+        ...allTables.filter((t) => t.zone === args.preferredZone),
+        ...allTables.filter((t) => t.zone !== args.preferredZone),
+      ]
+    : allTables;
+  for (const t of ordered) {
     const conflict = await prisma.booking.findFirst({
       where: {
         tableId: t.id,

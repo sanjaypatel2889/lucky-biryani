@@ -18,6 +18,59 @@ riderRouter.get('/me', requireAuth(['RIDER', 'ADMIN', 'OWNER']), async (req, res
   res.json({ rider: r });
 });
 
+// Earnings dashboard — today + last 7 days + last 30 days.
+// Per-order payout = base rate (₹25) + per-km rate (₹6) + 100% of customer tip.
+// Real ops should drive these via config; hard-coded constants are fine for the demo.
+riderRouter.get('/earnings', requireAuth(['RIDER']), async (req, res) => {
+  const r = await meRider(req.user!.id);
+  if (!r) return res.status(404).json({ error: 'not_a_rider' });
+
+  const BASE_PER_ORDER = 25;
+  const PER_KM = 6;
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const week = new Date(Date.now() - 7 * 24 * 60 * 60_000);
+  const month = new Date(Date.now() - 30 * 24 * 60 * 60_000);
+
+  const orders = await prisma.order.findMany({
+    where: { riderId: r.id, status: 'DELIVERED', deliveredAt: { gte: month.toISOString() } },
+    orderBy: { deliveredAt: 'desc' },
+  });
+
+  // Distance estimate from branch to delivery point — same haversine the
+  // pricing engine uses. For real ops you'd store the rider's actual path
+  // length per delivery; this is a reasonable demo proxy.
+  const { config } = await import('../config');
+  const { haversineKm } = await import('../util/geo');
+
+  let allRows = orders.map((o) => {
+    const km = o.lat != null && o.lng != null
+      ? haversineKm({ lat: config.branch.lat, lng: config.branch.lng }, { lat: o.lat, lng: o.lng })
+      : 0;
+    const payout = BASE_PER_ORDER + PER_KM * km + (o.riderTip ?? 0);
+    return { id: o.id, deliveredAt: o.deliveredAt, km, payout, tip: o.riderTip ?? 0 };
+  });
+
+  const sumPayout = (rows: typeof allRows, since: Date) =>
+    rows
+      .filter((x) => x.deliveredAt && new Date(x.deliveredAt) >= since)
+      .reduce((s, x) => s + x.payout, 0);
+
+  const sumKm = (rows: typeof allRows, since: Date) =>
+    rows
+      .filter((x) => x.deliveredAt && new Date(x.deliveredAt) >= since)
+      .reduce((s, x) => s + x.km, 0);
+
+  res.json({
+    today:  { count: allRows.filter((x) => x.deliveredAt && new Date(x.deliveredAt) >= today).length, earnings: round(sumPayout(allRows, today)), km: round(sumKm(allRows, today)) },
+    week:   { count: allRows.filter((x) => x.deliveredAt && new Date(x.deliveredAt) >= week).length,  earnings: round(sumPayout(allRows, week)),  km: round(sumKm(allRows, week))  },
+    month:  { count: allRows.length, earnings: round(sumPayout(allRows, month)), km: round(sumKm(allRows, month)) },
+    recent: allRows.slice(0, 20).map((x) => ({ ...x, km: round(x.km), payout: round(x.payout) })),
+  });
+
+  function round(n: number) { return Math.round(n * 10) / 10; }
+});
+
 riderRouter.post('/shifts/start', requireAuth(['RIDER']), async (req, res) => {
   const r = await meRider(req.user!.id);
   if (!r) return res.status(404).json({ error: 'not_a_rider' });

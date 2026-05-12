@@ -116,14 +116,48 @@ adminRouter.post('/items', async (req, res) => {
     basePrice: z.number().nonnegative(), isVeg: z.boolean().optional(),
     spiceLevel: z.number().int().min(0).max(3).optional(), prepMinutes: z.number().int().optional(),
     imageUrl: z.string().optional(),
+    gallery: z.array(z.string().url()).optional(),
+    dietaryTags: z.array(z.string()).optional(),
   }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'invalid_body' });
-  const item = await prisma.item.create({ data: body.data });
+  const { gallery, dietaryTags, ...rest } = body.data;
+  const item = await prisma.item.create({
+    data: {
+      ...rest,
+      ...(gallery ? { gallery: JSON.stringify(gallery) } : {}),
+      ...(dietaryTags ? { dietaryTags: JSON.stringify(dietaryTags) } : {}),
+    },
+  });
   res.json({ item });
 });
 
 adminRouter.patch('/items/:id', async (req, res) => {
-  const item = await prisma.item.update({ where: { id: req.params.id }, data: req.body });
+  const body = z.object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    basePrice: z.number().nonnegative().optional(),
+    isVeg: z.boolean().optional(),
+    spiceLevel: z.number().int().min(0).max(3).optional(),
+    prepMinutes: z.number().int().optional(),
+    imageUrl: z.string().optional(),
+    isActive: z.boolean().optional(),
+    isBestseller: z.boolean().optional(),
+    isTrending: z.boolean().optional(),
+    gallery: z.array(z.string().url()).optional(),
+    dietaryTags: z.array(z.string()).optional(),
+    allergens: z.array(z.string()).optional(),
+  }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: 'invalid_body' });
+  const { gallery, dietaryTags, allergens, ...rest } = body.data;
+  const item = await prisma.item.update({
+    where: { id: req.params.id },
+    data: {
+      ...rest,
+      ...(gallery ? { gallery: JSON.stringify(gallery) } : {}),
+      ...(dietaryTags ? { dietaryTags: JSON.stringify(dietaryTags) } : {}),
+      ...(allergens ? { allergens: JSON.stringify(allergens) } : {}),
+    },
+  });
   res.json({ item });
 });
 
@@ -142,6 +176,102 @@ adminRouter.get('/analytics/today', async (_req, res) => {
   });
   res.json({
     orders: all.length, delivered: delivered.length, revenue, byStatus, bookings,
+  });
+});
+
+// 30-day analytics — customer LTV, repeat-buyer rate, menu performance,
+// delivery time SLA. Designed for the owner's dashboard tile grid.
+adminRouter.get('/analytics/deep', async (_req, res) => {
+  const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
+  const delivered = await prisma.order.findMany({
+    where: { status: 'DELIVERED', deliveredAt: { not: null } },
+    include: { items: true },
+  });
+
+  // Customer metrics
+  const customers = new Map<string, { count: number; revenue: number; lastAt: string }>();
+  for (const o of delivered) {
+    const rec = customers.get(o.userId) ?? { count: 0, revenue: 0, lastAt: o.createdAt };
+    rec.count++;
+    rec.revenue += o.total;
+    if (o.deliveredAt && o.deliveredAt > rec.lastAt) rec.lastAt = o.deliveredAt;
+    customers.set(o.userId, rec);
+  }
+  const customerCount = customers.size;
+  const repeatCount = [...customers.values()].filter((c) => c.count >= 2).length;
+  const repeatRate = customerCount === 0 ? 0 : Math.round((repeatCount / customerCount) * 1000) / 10;
+  const ltvAvg = customerCount === 0 ? 0 : Math.round([...customers.values()].reduce((s, c) => s + c.revenue, 0) / customerCount);
+  const topCustomers = [...customers.entries()]
+    .sort((a, b) => b[1].revenue - a[1].revenue)
+    .slice(0, 5);
+  const topCustomerUsers = await prisma.user.findMany({
+    where: { id: { in: topCustomers.map(([id]) => id) } },
+    select: { id: true, name: true, email: true },
+  });
+  const topCustomersResolved = topCustomers.map(([id, rec]) => ({
+    id,
+    name: topCustomerUsers.find((u) => u.id === id)?.name ?? '—',
+    orders: rec.count,
+    revenue: Math.round(rec.revenue),
+  }));
+
+  // Menu performance — top 10 items by qty and revenue (last 30 days)
+  const last30 = delivered.filter((o) => o.deliveredAt && o.deliveredAt >= monthAgo);
+  const itemAgg = new Map<string, { qty: number; revenue: number }>();
+  for (const o of last30) {
+    for (const it of o.items) {
+      const rec = itemAgg.get(it.itemId) ?? { qty: 0, revenue: 0 };
+      rec.qty += it.qty;
+      rec.revenue += it.lineTotal;
+      itemAgg.set(it.itemId, rec);
+    }
+  }
+  const itemNames = await prisma.item.findMany({
+    where: { id: { in: [...itemAgg.keys()] } },
+    select: { id: true, name: true, basePrice: true },
+  });
+  const topItems = [...itemAgg.entries()]
+    .map(([id, rec]) => ({
+      id,
+      name: itemNames.find((i) => i.id === id)?.name ?? '—',
+      qty: rec.qty,
+      revenue: Math.round(rec.revenue),
+    }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 10);
+
+  // Delivery time SLA — avg from PAID → DELIVERED, broken down by week
+  const deliveryDurations = last30
+    .filter((o) => o.type === 'DELIVERY' && o.deliveredAt)
+    .map((o) => (new Date(o.deliveredAt!).getTime() - new Date(o.createdAt).getTime()) / 60_000);
+  const avgDeliveryMin = deliveryDurations.length
+    ? Math.round(deliveryDurations.reduce((s, x) => s + x, 0) / deliveryDurations.length)
+    : 0;
+  const overSlaCount = deliveryDurations.filter((m) => m > 45).length;
+  const slaCompliance = deliveryDurations.length
+    ? Math.round(((deliveryDurations.length - overSlaCount) / deliveryDurations.length) * 1000) / 10
+    : 100;
+
+  // 7-day revenue breakdown (chart data)
+  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60_000); weekStart.setHours(0, 0, 0, 0);
+  const dayBuckets: Array<{ date: string; revenue: number; orders: number }> = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart.getTime() + i * 24 * 60 * 60_000);
+    const dStart = d.toISOString();
+    const dEnd = new Date(d.getTime() + 24 * 60 * 60_000).toISOString();
+    const slice = delivered.filter((o) => o.deliveredAt && o.deliveredAt >= dStart && o.deliveredAt < dEnd);
+    dayBuckets.push({
+      date: d.toISOString().slice(0, 10),
+      revenue: Math.round(slice.reduce((s, o) => s + o.total, 0)),
+      orders: slice.length,
+    });
+  }
+
+  res.json({
+    customers: { total: customerCount, repeat: repeatCount, repeatRatePct: repeatRate, avgLtv: ltvAvg, topCustomers: topCustomersResolved },
+    menu:      { topItems },
+    delivery:  { avgDeliveryMin, overSla: overSlaCount, slaCompliancePct: slaCompliance },
+    revenue7d: dayBuckets,
   });
 });
 

@@ -18,6 +18,9 @@ import { webhookRouter } from './routes/webhooks';
 import { reviewsRouter } from './routes/reviews';
 import { aiRouter } from './routes/ai';
 import { pushRouter } from './routes/push';
+import { addressRouter } from './routes/addresses';
+import { favoritesRouter } from './routes/favorites';
+import { membershipRouter } from './routes/membership';
 import { initPush } from './services/push';
 
 const app = express();
@@ -39,6 +42,9 @@ app.use('/api/v1/webhooks', webhookRouter);
 app.use('/api/v1/reviews', reviewsRouter);
 app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/push', pushRouter);
+app.use('/api/v1/addresses', addressRouter);
+app.use('/api/v1/favorites', favoritesRouter);
+app.use('/api/v1/membership', membershipRouter);
 
 // Generic error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

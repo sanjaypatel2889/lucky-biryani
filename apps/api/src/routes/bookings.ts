@@ -28,6 +28,7 @@ bookingRouter.post('/', requireAuth(), async (req, res) => {
       slotStart: z.string(), // ISO
       occasion: z.string().optional(),
       specialRequest: z.string().optional(),
+      preferredZone: z.enum(['Indoor', 'Patio', 'Family Room']).optional(),
       requireDeposit: z.boolean().optional(),
     })
     .safeParse(req.body);
@@ -43,6 +44,7 @@ bookingRouter.post('/', requireAuth(), async (req, res) => {
     partySize: b.partySize,
     slotStart: slotStart.toISOString(),
     slotEnd: slotEnd.toISOString(),
+    preferredZone: b.preferredZone,
   });
   if (!table) return res.status(409).json({ error: 'no_table_available' });
 
@@ -66,6 +68,7 @@ bookingRouter.post('/', requireAuth(), async (req, res) => {
       qrToken: randomToken(40),
       occasion: b.occasion,
       specialRequest: b.specialRequest,
+      preferredZone: b.preferredZone,
       createdAt: now(),
     },
   });
@@ -116,6 +119,64 @@ bookingRouter.post('/:id/cancel', requireAuth(), async (req, res) => {
   });
   bus.emit('admin:bookings', { id: b.id, status: 'CANCELLED' });
   res.json({ booking: upd });
+});
+
+// Attach a pre-order to an existing booking. Pre-order kicks off cooking ~25
+// min before the slot via the preOrderKick worker, so the food lands as the
+// party is seated. The order is created in PAID state (online stub) and
+// linked back via Booking.preOrderId.
+bookingRouter.post('/:id/pre-order', requireAuth(), async (req, res) => {
+  const body = z.object({
+    cart: z.array(z.object({
+      itemId: z.string(),
+      qty: z.number().int().positive(),
+      modifierIds: z.array(z.string()).optional(),
+      notes: z.string().optional(),
+    })).min(1),
+    paymentMode: z.enum(['ONLINE', 'COD']).default('ONLINE'),
+  }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: 'invalid_body' });
+
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+  if (!booking || booking.userId !== req.user!.id) return res.status(404).json({ error: 'not_found' });
+  if (booking.preOrderId) return res.status(409).json({ error: 'already_has_preorder' });
+  if (!['CONFIRMED', 'PENDING'].includes(booking.status)) return res.status(400).json({ error: 'booking_not_active' });
+
+  const { buildQuote } = await import('../services/pricing');
+  const { newOrderNumber } = await import('../util/ids');
+  const q = await buildQuote({
+    branchId: booking.branchId,
+    type: 'DINEIN',
+    cart: body.data.cart,
+  });
+  if (q.errors.length) return res.status(400).json({ error: 'quote_failed', detail: q.errors });
+
+  const order = await prisma.order.create({
+    data: {
+      orderNumber: newOrderNumber(),
+      userId: req.user!.id,
+      branchId: booking.branchId,
+      type: 'DINEIN',
+      status: 'PAID', // pre-orders are settled with the booking
+      paymentMode: body.data.paymentMode,
+      subtotal: q.subtotal,
+      tax: q.tax,
+      total: q.total,
+      createdAt: now(),
+      updatedAt: now(),
+      items: {
+        create: q.lines.map((l) => ({
+          itemId: l.itemId, qty: l.qty, unitPrice: l.unitPrice,
+          modifiers: JSON.stringify(l.modifiers), notes: l.notes,
+          lineTotal: l.lineTotal,
+        })),
+      },
+    },
+    include: { items: true },
+  });
+
+  await prisma.booking.update({ where: { id: booking.id }, data: { preOrderId: order.id } });
+  res.json({ order, booking: { id: booking.id, preOrderId: order.id } });
 });
 
 // host scans QR — token-based

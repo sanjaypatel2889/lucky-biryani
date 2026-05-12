@@ -19,6 +19,7 @@ export default function BookPage() {
   const [picked, setPicked] = useState<Slot | null>(null);
   const [occasion, setOccasion] = useState('');
   const [special, setSpecial] = useState('');
+  const [preferredZone, setPreferredZone] = useState<'' | 'Indoor' | 'Patio' | 'Family Room'>('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
@@ -45,6 +46,7 @@ export default function BookPage() {
           branchId, partySize, slotStart: picked.start,
           occasion: occasion || undefined,
           specialRequest: special || undefined,
+          preferredZone: preferredZone || undefined,
         }),
       });
       router.push(`/bookings/${r.booking.id}`);
@@ -91,6 +93,28 @@ export default function BookPage() {
               <option>Business meal</option>
             </select>
           </div>
+        </div>
+
+        <div className="mt-4 card p-4">
+          <label className="label">Preferred seating</label>
+          <div className="flex flex-wrap gap-2">
+            {([
+              { id: '',            label: 'No preference', emoji: '🪑' },
+              { id: 'Indoor',      label: 'Indoor',         emoji: '🏠' },
+              { id: 'Patio',       label: 'Patio',          emoji: '🌿' },
+              { id: 'Family Room', label: 'Family Room',    emoji: '👨‍👩‍👧‍👦' },
+            ] as const).map((z) => (
+              <button
+                key={z.id}
+                type="button"
+                onClick={() => setPreferredZone(z.id)}
+                className={`rounded-full border px-3 py-1.5 text-sm transition ${preferredZone === z.id ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-stone-200 bg-white text-stone-700 hover:border-brand-300'}`}
+              >
+                <span className="mr-1">{z.emoji}</span>{z.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-stone-500">We'll try our best — if the zone is full, we'll seat you elsewhere with a heads-up.</p>
         </div>
 
         <div className="mt-6 space-y-4">

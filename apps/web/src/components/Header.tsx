@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-store';
 import { useCart } from '@/lib/cart-store';
+import { api } from '@/lib/api';
 import { LoginModal } from './LoginModal';
 
 export function Header({ transparent = false }: { transparent?: boolean }) {
@@ -12,6 +13,14 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [member, setMember] = useState<{ active: boolean } | null>(null);
+
+  // Club badge — small star next to the loyalty pill when the user has an
+  // active subscription. Cheap fetch on login change only.
+  useEffect(() => {
+    if (!user) { setMember(null); return; }
+    api<{ active: boolean }>('/api/v1/membership/me').then(setMember).catch(() => setMember(null));
+  }, [user?.id]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -40,10 +49,15 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
         </Link>
 
         <nav className="ml-8 hidden items-center gap-7 md:flex">
-          <Link href="/menu"   className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Menu</Link>
-          <Link href="/book"   className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Book a table</Link>
-          <Link href="/orders" className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>My orders</Link>
-          <Link href="/refer"  className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Refer & earn</Link>
+          <Link href="/menu"      className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Menu</Link>
+          <Link href="/book"      className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Book a table</Link>
+          <Link href="/orders"    className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>My orders</Link>
+          <Link href="/favorites" className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Favourites</Link>
+          <Link href="/club"      className={`text-sm font-medium transition ${solid ? 'text-amber-700 hover:text-amber-800' : 'text-amber-200 hover:text-amber-100'}`}>
+            ★ Club
+          </Link>
+          <Link href="/refer"     className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Refer & earn</Link>
+          <Link href="/help"      className={`text-sm font-medium transition ${solid ? 'text-stone-700 hover:text-brand-700' : 'text-white/90 hover:text-white'}`}>Help</Link>
         </nav>
 
         <div className="ml-auto flex items-center gap-2 md:gap-3">
@@ -61,6 +75,11 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
           {user ? (
             <div className="hidden items-center gap-2 md:flex">
               <span className="text-sm text-stone-600">Hi, {user.name?.split(' ')[0] ?? 'there'}</span>
+              {member?.active && (
+                <Link href="/club" className="rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm" title="Lucky Club member">
+                  ★ CLUB
+                </Link>
+              )}
               {typeof user.loyaltyPoints === 'number' && user.loyaltyPoints > 0 && (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Loyalty points">
                   ★ {user.loyaltyPoints}
@@ -87,10 +106,12 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
       {mobile && (
         <div className="border-t border-stone-200 bg-white md:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col px-4 py-2">
-            <Link href="/menu"   className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Menu</Link>
-            <Link href="/book"   className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Book a table</Link>
-            <Link href="/orders" className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>My orders</Link>
-            <Link href="/refer"  className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Refer & earn</Link>
+            <Link href="/menu"      className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Menu</Link>
+            <Link href="/book"      className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Book a table</Link>
+            <Link href="/orders"    className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>My orders</Link>
+            <Link href="/favorites" className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Favourites</Link>
+            <Link href="/refer"     className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Refer & earn</Link>
+            <Link href="/help"      className="rounded-md px-3 py-2.5 text-sm hover:bg-stone-100" onClick={() => setMobile(false)}>Help</Link>
             {user && <button onClick={logout} className="rounded-md px-3 py-2.5 text-left text-sm hover:bg-stone-100">Logout</button>}
           </nav>
         </div>

@@ -2,18 +2,21 @@
 
 import { useState, useEffect, useRef, KeyboardEvent, ClipboardEvent } from 'react';
 import { useAuth } from '@/lib/auth-store';
+import { useToast } from '@/components/ui/Toast';
 
 const RESEND_SECONDS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { loginOTP, verifyOTP } = useAuth();
+  const toast = useToast();
 
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [shake, setShake] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [referralCode, setReferralCode] = useState<string>('');
 
@@ -78,10 +81,15 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
     setBusy(true); setErr('');
     try {
       await verifyOTP(email.trim().toLowerCase(), code, undefined, referralCode || undefined);
+      toast.success('Welcome to Lucky Biryani.');
       onClose();
     } catch (e: any) {
       setErr(e?.message || 'Invalid or expired code. Please try again.');
       setOtp(['', '', '', '', '', '']);
+      // Trigger shake animation
+      setShake(false);
+      requestAnimationFrame(() => setShake(true));
+      window.setTimeout(() => setShake(false), 500);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     }
     setBusy(false);
@@ -244,7 +252,7 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
                 </button>
               </p>
 
-              <div className="mt-6 flex justify-between gap-2">
+              <div className={`mt-6 flex justify-between gap-2 ${shake ? 'animate-shake' : ''}`}>
                 {otp.map((d, i) => (
                   <input
                     key={i}

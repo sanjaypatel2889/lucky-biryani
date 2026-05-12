@@ -4,6 +4,8 @@ import { Playfair_Display, Inter } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth-store';
 import { CartProvider } from '@/lib/cart-store';
 import { LuckyAi } from '@/components/LuckyAi';
+import { ToastProvider } from '@/components/ui/Toast';
+import { ScrollProgress } from '@/components/ui/ScrollProgress';
 
 const display = Playfair_Display({
   subsets: ['latin'],
@@ -70,11 +72,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <ScrollProgress />
         <AuthProvider>
-          <CartProvider>
-            {children}
-            <LuckyAi />
-          </CartProvider>
+          <ToastProvider>
+            <CartProvider>
+              {children}
+              <LuckyAi />
+            </CartProvider>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

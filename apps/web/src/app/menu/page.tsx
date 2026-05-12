@@ -9,6 +9,11 @@ import { dishPhoto } from '@/lib/photos';
 import { DishImage } from '@/components/DishImage';
 import { CollectionsRails } from '@/components/CollectionsRails';
 import { BusyIndicator } from '@/components/BusyIndicator';
+import { Stagger } from '@/components/ui/Stagger';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { flyToCart } from '@/lib/flyToCart';
+import { useToast } from '@/components/ui/Toast';
+import { TOAST } from '@/lib/copy';
 
 type Modifier = { id: string; name: string; priceDelta: number };
 type ModifierGroup = {
@@ -50,8 +55,10 @@ type Category = { id: string; name: string; slug: string };
 
 export default function MenuPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [cats, setCats] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [vegOnly, setVegOnly] = useState(false);
@@ -62,6 +69,7 @@ export default function MenuPage() {
   const [dietary, setDietary] = useState<string[]>([]);
   const [sort, setSort] = useState<string>('default');
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  const [heartedId, setHeartedId] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ categories: Category[] }>('/api/v1/menu/categories').then((r) => {
@@ -77,7 +85,10 @@ export default function MenuPage() {
     if (dietary.length) params.set('tags', dietary.join(','));
     if (sort !== 'default') params.set('sort', sort);
     const qs = params.toString();
-    api<{ items: MenuItem[] }>(`/api/v1/menu/items${qs ? `?${qs}` : ''}`).then((r) => setItems(r.items));
+    setLoading(true);
+    api<{ items: MenuItem[] }>(`/api/v1/menu/items${qs ? `?${qs}` : ''}`)
+      .then((r) => setItems(r.items))
+      .finally(() => setLoading(false));
   }, [dietary, sort]);
 
   // Load user's favorite item IDs on login
@@ -96,8 +107,15 @@ export default function MenuPage() {
       else next.add(itemId);
       return next;
     });
+    // Trigger pop only when adding (not when removing)
+    if (!isFav) {
+      setHeartedId(itemId);
+      window.setTimeout(() => setHeartedId((cur) => cur === itemId ? null : cur), 500);
+    }
     try {
       await api(`/api/v1/favorites/${itemId}`, { method: isFav ? 'DELETE' : 'POST' });
+      const name = items.find((i) => i.id === itemId)?.name ?? 'Item';
+      toast.success(isFav ? TOAST.unfavoritedItem(name) : TOAST.favoritedItem(name));
     } catch {
       // Revert on failure
       setFavIds((cur) => {
@@ -106,6 +124,7 @@ export default function MenuPage() {
         else next.delete(itemId);
         return next;
       });
+      toast.error(TOAST.error);
     }
   }
 
@@ -264,7 +283,12 @@ export default function MenuPage() {
         </aside>
 
         <div className="space-y-14">
-          {cats.map((c) => {
+          {loading && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 6 }).map((_, idx) => <SkeletonCard key={idx} />)}
+            </div>
+          )}
+          {!loading && cats.map((c) => {
             const list = grouped.get(c.id) ?? [];
             if (!list.length) return null;
             return (
@@ -273,7 +297,7 @@ export default function MenuPage() {
                   <h2 className="display text-3xl font-bold text-stone-900">{c.name}</h2>
                   <span className="text-xs uppercase tracking-wider text-stone-400">{list.length} dishes</span>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <Stagger mountKey={`${c.id}-${list.length}-${sort}`} className="grid gap-4 md:grid-cols-2">
                   {list.map((i) => (
                     <div key={i.id} className="card group flex gap-4 overflow-hidden p-4 transition hover:shadow-md hover:shadow-stone-300/50">
                       <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-lg bg-stone-100">
@@ -295,7 +319,7 @@ export default function MenuPage() {
                         {user && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(i.id); }}
-                            className={`absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full backdrop-blur-sm transition ${favIds.has(i.id) ? 'bg-rose-500 text-white shadow' : 'bg-white/90 text-stone-500 hover:bg-white hover:text-rose-500'}`}
+                            className={`absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full backdrop-blur-sm transition ${favIds.has(i.id) ? 'bg-rose-500 text-white shadow' : 'bg-white/90 text-stone-500 hover:bg-white hover:text-rose-500'} ${heartedId === i.id ? 'animate-heart-pop' : ''}`}
                             aria-label={favIds.has(i.id) ? 'Remove from favorites' : 'Save to favorites'}
                           >
                             {favIds.has(i.id) ? '♥' : '♡'}
@@ -336,7 +360,7 @@ export default function MenuPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </Stagger>
               </section>
             );
           })}
@@ -350,6 +374,7 @@ export default function MenuPage() {
 
 function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) {
   const { add } = useCart();
+  const toast = useToast();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
@@ -387,7 +412,7 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
     return c >= g.minSelect && c <= g.maxSelect;
   });
 
-  function add2cart() {
+  function add2cart(e?: React.MouseEvent<HTMLButtonElement>) {
     if (!valid) return;
     const labels = item.modifierGroups
       .flatMap((g) => g.modifiers.filter((m) => allModIds.includes(m.id)))
@@ -397,6 +422,10 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
       unitPrice: unit, modifierIds: allModIds, modifierLabels: labels,
       notes: notes || undefined,
     });
+    // Fly-to-cart from the modal's photo (top of the modal)
+    const img = (e?.currentTarget as HTMLElement | undefined)?.closest('.card')?.querySelector('img') as HTMLElement | null;
+    flyToCart(img);
+    toast.success(TOAST.addedToCart(item.name));
     onClose();
   }
 
@@ -482,7 +511,17 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
             <span className="w-8 text-center font-medium">{qty}</span>
             <button className="btn-secondary !px-3" onClick={() => setQty(qty + 1)}>+</button>
           </div>
-          <button className="btn-primary flex-1" disabled={!valid} onClick={add2cart}>
+          <button
+            className="btn-primary flex-1"
+            disabled={!valid}
+            onClick={(e) => {
+              const btn = e.currentTarget;
+              btn.classList.remove('animate-press');
+              void btn.offsetWidth;
+              btn.classList.add('animate-press');
+              add2cart(e);
+            }}
+          >
             Add — ₹{(unit * qty).toFixed(0)}
           </button>
         </div>

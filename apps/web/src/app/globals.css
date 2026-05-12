@@ -102,3 +102,174 @@ body {
   -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
           mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
 }
+
+/* =========================================================================
+   Motion / micro-interactions library
+   Pure-CSS keyframes used across the app. 200–500ms sweet spot per pattern.
+   Honors prefers-reduced-motion at the bottom of this file.
+   ========================================================================= */
+
+/* --- Skeleton shimmer (loading state) --------------------------------- */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #e7e5e4 0%, #f5f5f4 40%, #e7e5e4 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* --- Card lift (applied to .card by default) --------------------------- */
+.card { transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -10px rgba(120, 53, 15, 0.18); }
+
+/* --- Heart pop on favorite ------------------------------------------- */
+@keyframes heart-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  60%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.animate-heart-pop { animation: heart-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* --- Sparkle burst after heart -------------------------------------- */
+@keyframes sparkle {
+  0%   { opacity: 0; transform: scale(0.5) translate(0, 0); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4) translate(var(--tx, 14px), var(--ty, -10px)); }
+}
+.animate-sparkle { animation: sparkle 0.6s ease-out forwards; }
+
+/* --- Bounce on click / +Add press ------------------------------------ */
+@keyframes press-bounce {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.92); }
+  70%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+.animate-press { animation: press-bounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* --- Count badge pulse when value changes ----------------------------- */
+@keyframes badge-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.animate-badge-pulse { animation: badge-pulse 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* --- Breathing pulse on active status / live dots --------------------- */
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.6); }
+  70%      { box-shadow: 0 0 0 10px rgba(234, 88, 12, 0); }
+}
+.animate-breathe { animation: breathe 2s ease-out infinite; }
+
+/* --- Error shake (form invalid) -------------------------------------- */
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(5px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(3px); }
+}
+.animate-shake { animation: shake-x 0.42s ease-in-out; }
+
+/* --- Stagger reveal (set --stagger-index on each item) --------------- */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-rise {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--stagger-index, 0) * 60ms);
+}
+
+/* --- Fly to cart (clone moves toward cart icon) ---------------------- */
+.fly-to-cart {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: 9999px;
+  transition: transform 0.7s cubic-bezier(0.55, -0.05, 0.45, 0.95), opacity 0.7s ease;
+}
+
+/* --- Bouncing dots (AI is thinking, chat typing) --------------------- */
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-4px); opacity: 1; }
+}
+.dot-bounce { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin: 0 1.5px; animation: dot-bounce 1s infinite ease-in-out; }
+.dot-bounce:nth-child(2) { animation-delay: 0.15s; }
+.dot-bounce:nth-child(3) { animation-delay: 0.3s; }
+
+/* --- Flip-clock digit change (used by ETA countdown) ----------------- */
+@keyframes flip-down {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-flip-down { animation: flip-down 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* --- Scroll progress bar (top of viewport) --------------------------- */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--brand-500), var(--brand-700), var(--gold));
+  transform-origin: 0 50%; transform: scaleX(var(--p, 0));
+  z-index: 60; transition: transform 0.08s linear;
+}
+
+/* --- Smooth label float for inputs (floating-label pattern) ---------- */
+.float-label {
+  position: relative;
+}
+.float-label > input,
+.float-label > textarea {
+  width: 100%;
+  padding: 1.1rem 0.75rem 0.4rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.5rem;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.float-label > input:focus,
+.float-label > textarea:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+.float-label > label {
+  position: absolute;
+  left: 0.85rem;
+  top: 0.85rem;
+  color: #78716c;
+  font-size: 0.875rem;
+  pointer-events: none;
+  transition: top 0.15s ease, font-size 0.15s ease, color 0.15s ease;
+  background: white;
+  padding: 0 0.25rem;
+}
+.float-label > input:focus + label,
+.float-label > input:not(:placeholder-shown) + label,
+.float-label > textarea:focus + label,
+.float-label > textarea:not(:placeholder-shown) + label {
+  top: -0.5rem;
+  font-size: 0.7rem;
+  color: var(--brand-700);
+}
+
+/* --- Animated rider route on map (SVG fallback) ---------------------- */
+@keyframes route-draw {
+  to { stroke-dashoffset: 0; }
+}
+.route-draw { stroke-dasharray: 600; stroke-dashoffset: 600; animation: route-draw 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+/* --- Reduce motion preference ---------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

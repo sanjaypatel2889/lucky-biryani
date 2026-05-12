@@ -9,6 +9,7 @@ import { OrderMap } from '@/components/OrderMap';
 import { PushOptIn } from '@/components/PushOptIn';
 import { EtaCountdown } from '@/components/EtaCountdown';
 import { RiderChat } from '@/components/RiderChat';
+import { ORDER_STATUS_PHRASE } from '@/lib/copy';
 
 const STAGES = ['PAID', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
 const BRANCH = { lat: 17.385, lng: 78.4867, name: 'Lucky Biryani Centre' };
@@ -39,12 +40,13 @@ export default function OrderDetail() {
     <>
       <Header />
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold text-brand-900">{order.orderNumber}</h1>
             <p className="text-sm text-slate-500">{new Date(order.createdAt).toLocaleString()} · {order.type} · {order.paymentMode}</p>
+            <p className="mt-1 text-sm font-medium text-brand-800">{ORDER_STATUS_PHRASE[order.status] ?? order.status}</p>
           </div>
-          <span className="chip bg-brand-100 text-brand-800">{order.status}</span>
+          <span className="chip bg-brand-100 text-brand-800">{order.status.replace(/_/g, ' ').toLowerCase()}</span>
         </div>
 
         <PushOptIn />
@@ -55,12 +57,16 @@ export default function OrderDetail() {
         {/* Progress */}
         <div className="card p-4">
           <div className="flex items-center justify-between">
-            {STAGES.map((s, i) => (
-              <div key={s} className="flex flex-1 flex-col items-center text-xs">
-                <div className={`mb-1 h-3 w-3 rounded-full ${i <= idx ? 'bg-brand-600' : 'bg-slate-300'}`} />
-                <span className={`whitespace-nowrap ${i <= idx ? 'text-brand-700' : 'text-slate-400'}`}>{s.replace(/_/g, ' ')}</span>
-              </div>
-            ))}
+            {STAGES.map((s, i) => {
+              const done = i < idx;
+              const active = i === idx;
+              return (
+                <div key={s} className="flex flex-1 flex-col items-center text-xs">
+                  <div className={`mb-1 h-3 w-3 rounded-full ${done || active ? 'bg-brand-600' : 'bg-slate-300'} ${active ? 'animate-breathe' : ''}`} />
+                  <span className={`whitespace-nowrap ${done || active ? 'text-brand-700' : 'text-slate-400'}`}>{s.replace(/_/g, ' ')}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

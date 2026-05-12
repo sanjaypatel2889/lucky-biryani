@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth-store';
 import { useCart } from '@/lib/cart-store';
 import { api } from '@/lib/api';
 import { LoginModal } from './LoginModal';
+import { ShoppingBag, Menu as MenuIcon, X as CloseIcon } from 'lucide-react';
 
 export function Header({ transparent = false }: { transparent?: boolean }) {
   const { user, logout } = useAuth();
@@ -14,6 +15,8 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [member, setMember] = useState<{ active: boolean } | null>(null);
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const prevCount = useRef(count);
 
   // Club badge — small star next to the loyalty pill when the user has an
   // active subscription. Cheap fetch on login change only.
@@ -21,6 +24,17 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
     if (!user) { setMember(null); return; }
     api<{ active: boolean }>('/api/v1/membership/me').then(setMember).catch(() => setMember(null));
   }, [user?.id]);
+
+  // Re-trigger the badge pulse every time the cart count changes
+  useEffect(() => {
+    if (count !== prevCount.current && badgeRef.current) {
+      const el = badgeRef.current;
+      el.classList.remove('animate-badge-pulse');
+      void el.offsetWidth; // restart the keyframe
+      el.classList.add('animate-badge-pulse');
+    }
+    prevCount.current = count;
+  }, [count]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -39,7 +53,7 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
           : 'border-b border-transparent'
       }`}
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 md:py-4">
+      <div className={`mx-auto flex max-w-7xl items-center gap-4 px-4 transition-all duration-300 ${scrolled ? 'py-2 md:py-2.5' : 'py-3 md:py-4'}`}>
         <Link href="/" className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 font-display text-white shadow-md shadow-brand-300/40">L</span>
           <div className="leading-tight">
@@ -63,11 +77,16 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
         <div className="ml-auto flex items-center gap-2 md:gap-3">
           <Link
             href="/cart"
-            className={`relative rounded-md px-3 py-1.5 text-sm font-medium transition ${solid ? 'text-stone-700 hover:bg-stone-100' : 'text-white/90 hover:bg-white/10'}`}
+            id="lbc-cart-target"
+            className={`relative inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${solid ? 'text-stone-700 hover:bg-stone-100' : 'text-white/90 hover:bg-white/10'}`}
           >
-            Cart
+            <ShoppingBag size={16} />
+            <span className="hidden sm:inline">Cart</span>
             {count > 0 && (
-              <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-brand-600 px-1 text-xs font-bold text-white shadow">
+              <span
+                ref={badgeRef}
+                className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-brand-600 px-1 text-xs font-bold text-white shadow"
+              >
                 {count}
               </span>
             )}
@@ -91,13 +110,11 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
             <button onClick={() => setLoginOpen(true)} className="btn-primary text-sm">Login</button>
           )}
           <button
-            className={`md:hidden rounded-md p-2 ${solid ? 'text-stone-700' : 'text-white'}`}
+            className={`md:hidden rounded-md p-2 transition ${solid ? 'text-stone-700' : 'text-white'}`}
             onClick={() => setMobile(!mobile)}
-            aria-label="Open menu"
+            aria-label={mobile ? 'Close menu' : 'Open menu'}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {mobile ? <path d="M6 6l12 12M18 6L6 18" /> : <><path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h18" /></>}
-            </svg>
+            {mobile ? <CloseIcon size={22} /> : <MenuIcon size={22} />}
           </button>
         </div>
       </div>

@@ -7,6 +7,9 @@ import { useAuth } from '@/lib/auth-store';
 import Link from 'next/link';
 import { DishImage } from '@/components/DishImage';
 import { dishPhoto } from '@/lib/photos';
+import { Stagger } from '@/components/ui/Stagger';
+import { SkeletonCard } from '@/components/ui/Skeleton';
+import { EMPTY } from '@/lib/copy';
 
 type Favorite = {
   id: string;
@@ -22,11 +25,17 @@ export default function FavoritesPage() {
   const { user, loading } = useAuth();
   const [favs, setFavs] = useState<Favorite[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(true);
 
   async function load() {
     if (!user) return;
-    const r = await api<{ favorites: Favorite[] }>('/api/v1/favorites');
-    setFavs(r.favorites);
+    setFetching(true);
+    try {
+      const r = await api<{ favorites: Favorite[] }>('/api/v1/favorites');
+      setFavs(r.favorites);
+    } finally {
+      setFetching(false);
+    }
   }
   useEffect(() => { void load(); }, [user?.id]);
 
@@ -58,14 +67,19 @@ export default function FavoritesPage() {
         <h1 className="font-display text-3xl font-bold text-brand-900">Your favourites</h1>
         <p className="mt-1 text-sm text-stone-500">{favs.length} item{favs.length === 1 ? '' : 's'} saved.</p>
 
-        {favs.length === 0 ? (
+        {fetching ? (
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : favs.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-10 text-center">
-            <div className="text-5xl">♡</div>
-            <p className="mt-3 text-stone-600">Tap the heart on any dish to save it for later.</p>
+            <div className="text-5xl">{EMPTY.favorites.emoji}</div>
+            <h2 className="mt-3 display text-xl font-bold text-stone-900">{EMPTY.favorites.title}</h2>
+            <p className="mt-1 text-stone-600">{EMPTY.favorites.hint}</p>
             <Link href="/menu" className="btn-primary mt-4 inline-flex">Browse menu</Link>
           </div>
         ) : (
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Stagger as="ul" mountKey={favs.length} className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {favs.map((f) => (
               <li key={f.id} className="card relative flex gap-3 p-3">
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-100">
@@ -90,7 +104,7 @@ export default function FavoritesPage() {
                 >♥</button>
               </li>
             ))}
-          </ul>
+          </Stagger>
         )}
       </main>
     </>

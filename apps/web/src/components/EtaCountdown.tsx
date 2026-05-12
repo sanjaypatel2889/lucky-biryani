@@ -1,10 +1,12 @@
 'use client';
 
 // Big "Arriving in 14 min" countdown. Fetches /eta on mount + every 30s,
-// and ticks down between polls so the number actually moves.
+// and ticks down between polls so the number actually moves. The minutes
+// digit flips when it changes — a tiny but expensive-feeling animation.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { api } from '@/lib/api';
+import { ETA_HEADLINE } from '@/lib/copy';
 
 type Eta = {
   minutesRemaining: number;
@@ -44,14 +46,16 @@ export function EtaCountdown({ orderId, status }: { orderId: string; status: str
   return (
     <div className="card flex items-center gap-4 overflow-hidden bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-5 text-white shadow-lg">
       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15 backdrop-blur">
-        <span className="text-2xl">🛵</span>
+        <span className="text-2xl animate-float">🛵</span>
       </div>
       <div className="flex-1">
         <div className="text-xs uppercase tracking-[0.18em] opacity-80">
-          {status === 'OUT_FOR_DELIVERY' ? 'Arriving in' : 'Estimated arrival'}
+          {ETA_HEADLINE[status] ?? (status === 'OUT_FOR_DELIVERY' ? 'Arriving in' : 'Estimated arrival')}
         </div>
         <div className="font-display text-3xl font-bold leading-tight md:text-4xl">
-          {minLeft === 0 ? 'Any minute now' : `${minLeft} min`}
+          {minLeft === 0
+            ? 'Any minute now'
+            : <span><FlipNumber value={minLeft} /> min</span>}
         </div>
         <div className="text-xs opacity-80">
           By {new Date(arriveMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -59,5 +63,16 @@ export function EtaCountdown({ orderId, status }: { orderId: string; status: str
         </div>
       </div>
     </div>
+  );
+}
+
+// Renders a number; whenever the value changes, the new value plays the
+// flip-down keyframe so it feels like a flip-clock digit. Inexpensive — one
+// CSS keyframe on a key-bound span.
+function FlipNumber({ value }: { value: number }) {
+  // Key on the value so React mounts a fresh span each time it changes,
+  // which retriggers the entrance animation.
+  return (
+    <span key={value} className="inline-block animate-flip-down tabular-nums">{value}</span>
   );
 }

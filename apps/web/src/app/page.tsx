@@ -10,6 +10,8 @@ import { LiveCueBar } from '@/components/LiveCueBar';
 import { PickedForYouRail } from '@/components/PickedForYouRail';
 import { BusyIndicator } from '@/components/BusyIndicator';
 import { Onboarding } from '@/components/Onboarding';
+import { RotatingTagline } from '@/components/ui/RotatingTagline';
+import { Parallax } from '@/components/ui/Parallax';
 import { dishPhoto, HERO, STORY, SPICES, RESTAURANT } from '@/lib/photos';
 
 const SERVER_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
@@ -40,11 +42,13 @@ export default async function Home() {
 
       {/* HERO ============================================================== */}
       <section className="relative isolate -mt-[72px] flex min-h-[100svh] items-center overflow-hidden text-white">
-        <img
-          src={HERO}
-          alt="Hyderabadi biryani in a copper handi"
-          className="absolute inset-0 -z-10 h-full w-full animate-kenburns object-cover"
-        />
+        <Parallax speed={0.2} className="absolute inset-0 -z-10">
+          <img
+            src={HERO}
+            alt="Hyderabadi biryani in a copper handi"
+            className="h-[120%] w-full animate-kenburns object-cover"
+          />
+        </Parallax>
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-stone-900/60 via-stone-900/55 to-stone-900/85" />
         <div className="absolute inset-0 -z-10 bg-noise opacity-40 mix-blend-overlay" />
 
@@ -65,8 +69,8 @@ export default async function Home() {
           </Reveal>
 
           <Reveal delay={240}>
-            <p className="mt-6 max-w-xl text-lg text-white/80 md:text-xl">
-              Hyderabad's most-loved dum biryani — sealed in a copper handi, opened at your table or your door, hot in 30 minutes flat.
+            <p className="mt-6 max-w-xl text-lg text-white/80 md:text-xl min-h-[3.5rem]">
+              <RotatingTagline />
             </p>
           </Reveal>
 
@@ -149,8 +153,10 @@ export default async function Home() {
 
           <Reveal delay={200}>
             <div className="relative">
-              <img src={STORY} alt="Steam rising from a copper handi"
-                   className="h-[520px] w-full rounded-2xl object-cover shadow-xl shadow-stone-300/60" />
+              <Parallax speed={0.12}>
+                <img src={STORY} alt="Steam rising from a copper handi"
+                     className="h-[520px] w-full rounded-2xl object-cover shadow-xl shadow-stone-300/60" />
+              </Parallax>
               <div className="absolute -bottom-6 -left-6 hidden rounded-xl bg-cream p-4 shadow-xl ring-1 ring-stone-200 md:block">
                 <div className="display text-3xl font-bold text-brand-700">
                   <Counter to={1247} />+

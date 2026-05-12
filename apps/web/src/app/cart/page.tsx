@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation';
 import { LoginModal } from '@/components/LoginModal';
 import { AddressPicker, type Address } from '@/components/AddressPicker';
 import { UpsellRail } from '@/components/UpsellRail';
+import { useToast } from '@/components/ui/Toast';
+import { EMPTY, TOAST } from '@/lib/copy';
 
 type Quote = {
   subtotal: number; tax: number; deliveryFee: number; weatherFee: number;
@@ -21,6 +23,7 @@ export default function CartPage() {
   const { lines, setQty, remove, clear, add } = useCart();
   const { user } = useAuth();
   const router = useRouter();
+  const toast = useToast();
 
   const [type, setType] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY');
   const [paymentMode, setPaymentMode] = useState<'ONLINE' | 'COD'>('ONLINE');
@@ -107,9 +110,12 @@ export default function CartPage() {
         });
       }
       clear();
+      toast.success(TOAST.orderPlaced);
       router.push(`/orders/${r.order.id}`);
     } catch (e: any) {
-      setErr(e.detail?.detail?.[0] ?? e.message);
+      const msg = e.detail?.detail?.[0] ?? e.message;
+      setErr(msg);
+      toast.error(typeof msg === 'string' ? msg : TOAST.error);
     }
     setBusy(false);
   }
@@ -118,9 +124,13 @@ export default function CartPage() {
     return (
       <>
         <Header />
-        <main className="mx-auto max-w-4xl px-4 py-12 text-center">
-          <p className="text-slate-500">Your cart is empty.</p>
-          <a className="btn-primary mt-4 inline-flex" href="/menu">Browse menu</a>
+        <main className="mx-auto max-w-3xl px-4 py-12">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-10 text-center">
+            <div className="text-5xl">{EMPTY.cart.emoji}</div>
+            <h1 className="mt-3 display text-2xl font-bold text-stone-900">{EMPTY.cart.title}</h1>
+            <p className="mt-1 text-stone-600">{EMPTY.cart.hint}</p>
+            <a className="btn-primary mt-5 inline-flex" href="/menu">Browse menu</a>
+          </div>
         </main>
       </>
     );

@@ -272,8 +272,13 @@ export function LuckyAi() {
             ))}
             {busy && (
               <div className="flex justify-start">
-                <div className="rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-sm text-slate-400 shadow-sm ring-1 ring-slate-100">
-                  {listening ? 'Listening…' : 'Lucky is thinking…'}
+                <div className="rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-sm text-slate-500 shadow-sm ring-1 ring-slate-100">
+                  {listening ? 'Listening…' : (
+                    <span className="inline-flex items-center">
+                      Lucky is thinking
+                      <span className="ml-2 inline-flex"><span className="dot-bounce" /><span className="dot-bounce" /><span className="dot-bounce" /></span>
+                    </span>
+                  )}
                 </div>
               </div>
             )}

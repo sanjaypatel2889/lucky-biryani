@@ -10,3 +10,8 @@ apps/api/uploads
 .DS_Store
 *.tsbuildinfo
 scripts/logs/
+# Playwright artifacts and one-off recon outputs
+test-results/
+playwright-report/
+scripts/lbc-tour/
+scripts/zomato-recon/

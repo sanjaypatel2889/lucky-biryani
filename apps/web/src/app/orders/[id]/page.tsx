@@ -9,6 +9,8 @@ import { OrderMap } from '@/components/OrderMap';
 import { PushOptIn } from '@/components/PushOptIn';
 import { EtaCountdown } from '@/components/EtaCountdown';
 import { RiderChat } from '@/components/RiderChat';
+import { OrderIssueForm } from '@/components/OrderIssueForm';
+import { OrderStatusAnimation } from '@/components/OrderStatusAnimation';
 import { ORDER_STATUS_PHRASE } from '@/lib/copy';
 
 const STAGES = ['PAID', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
@@ -53,6 +55,9 @@ export default function OrderDetail() {
 
         {/* Big ETA countdown — only shows while in-flight */}
         <EtaCountdown orderId={order.id} status={order.status} />
+
+        {/* Status illustration */}
+        <OrderStatusAnimation status={order.status} />
 
         {/* Progress */}
         <div className="card p-4">
@@ -144,6 +149,11 @@ export default function OrderDetail() {
 
         {/* Post-delivery review */}
         {order.status === 'DELIVERED' && <ReviewForm order={order} />}
+
+        {/* Report an issue with this order */}
+        {['PAID', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) && (
+          <OrderIssueForm orderId={order.id} />
+        )}
 
         {/* Timeline */}
         <div className="card p-4">

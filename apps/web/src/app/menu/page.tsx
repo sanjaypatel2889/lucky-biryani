@@ -9,6 +9,12 @@ import { dishPhoto } from '@/lib/photos';
 import { DishImage } from '@/components/DishImage';
 import { CollectionsRails } from '@/components/CollectionsRails';
 import { BusyIndicator } from '@/components/BusyIndicator';
+import { CuisineRail } from '@/components/CuisineRail';
+import { BestsellerRail } from '@/components/BestsellerRail';
+import { StickyCategoryNav } from '@/components/StickyCategoryNav';
+import { VegDot } from '@/components/ui/VegDot';
+import { RatingPill } from '@/components/ui/RatingPill';
+import { DiscountRibbon } from '@/components/ui/DiscountRibbon';
 import { Stagger } from '@/components/ui/Stagger';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { flyToCart } from '@/lib/flyToCart';
@@ -173,6 +179,21 @@ export default function MenuPage() {
         </div>
       </section>
 
+      {/* Round-icon category browse rail */}
+      <CuisineRail
+        categories={cats}
+        countByCat={new Map(cats.map((c) => [c.id, items.filter((i) => i.categoryId === c.id).length]))}
+      />
+
+      {/* Bestseller + trending rail */}
+      <BestsellerRail
+        items={items}
+        onPick={(id) => {
+          const it = items.find((i) => i.id === id);
+          if (it) setPicking(it);
+        }}
+      />
+
       {/* Curated collection rails */}
       <section className="mx-auto max-w-7xl px-4 pt-6">
         <CollectionsRails
@@ -261,24 +282,18 @@ export default function MenuPage() {
             <div className="text-xs text-stone-500">
               Showing <strong className="text-stone-900">{totalCount}</strong> of {items.length} dishes
             </div>
+          </div>
 
-            <ul className="space-y-1 border-t border-stone-100 pt-3">
-              {cats.map((c) => {
-                const list = grouped.get(c.id) ?? [];
-                if (!list.length) return null;
-                return (
-                  <li key={c.id}>
-                    <a
-                      href={`#cat-${c.slug}`}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition ${activeCat === c.id ? 'bg-brand-100 font-medium text-brand-900' : 'text-stone-600 hover:bg-stone-100'}`}
-                      onClick={() => setActiveCat(c.id)}>
-                      <span>{c.name}</span>
-                      <span className="text-xs text-stone-400">{list.length}</span>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
+          <div className="mt-4">
+            <StickyCategoryNav
+              categories={cats}
+              countByCat={new Map(cats.map((c) => [c.id, (grouped.get(c.id) ?? []).length]))}
+              header={
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Jump to section
+                </div>
+              }
+            />
           </div>
         </aside>
 
@@ -310,16 +325,19 @@ export default function MenuPage() {
                         {!i.available && (
                           <div className="absolute inset-0 grid place-items-center bg-stone-900/60 text-xs font-semibold uppercase tracking-wider text-white">Sold out</div>
                         )}
+                        {i.basePrice >= 200 && (
+                          <DiscountRibbon label="10% off ₹200+" tone="brand" position="top-right" />
+                        )}
                         {i.isBestseller && (
-                          <span className="absolute left-1.5 top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">★ Bestseller</span>
+                          <span className="absolute left-1.5 top-1.5 z-10 rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">★ Bestseller</span>
                         )}
                         {!i.isBestseller && i.isTrending && (
-                          <span className="absolute left-1.5 top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">🔥 Trending</span>
+                          <span className="absolute left-1.5 top-1.5 z-10 rounded-md bg-rose-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">🔥 Trending</span>
                         )}
                         {user && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(i.id); }}
-                            className={`absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full backdrop-blur-sm transition ${favIds.has(i.id) ? 'bg-rose-500 text-white shadow' : 'bg-white/90 text-stone-500 hover:bg-white hover:text-rose-500'} ${heartedId === i.id ? 'animate-heart-pop' : ''}`}
+                            className={`absolute bottom-1.5 right-1.5 z-10 grid h-7 w-7 place-items-center rounded-full backdrop-blur-sm transition ${favIds.has(i.id) ? 'bg-rose-500 text-white shadow' : 'bg-white/90 text-stone-500 hover:bg-white hover:text-rose-500'} ${heartedId === i.id ? 'animate-heart-pop' : ''}`}
                             aria-label={favIds.has(i.id) ? 'Remove from favorites' : 'Save to favorites'}
                           >
                             {favIds.has(i.id) ? '♥' : '♡'}
@@ -328,18 +346,12 @@ export default function MenuPage() {
                       </div>
                       <div className="flex flex-1 flex-col">
                         <div className="flex items-start gap-2">
-                          <span className={`mt-1 inline-block h-3 w-3 shrink-0 border ${i.isVeg ? 'border-emerald-700' : 'border-rose-700'}`}>
-                            <span className={`block h-full w-full ${i.isVeg ? 'bg-emerald-600' : 'bg-rose-600'} translate-y-[2px] translate-x-[2px] scale-50 rounded-full`} />
-                          </span>
+                          <span className="mt-1.5"><VegDot veg={i.isVeg} size={12} /></span>
                           <h3 className="display text-lg font-semibold text-stone-900">{i.name}</h3>
                         </div>
                         <p className="mt-1 line-clamp-2 text-sm text-stone-500">{i.description}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-                          {i.ratingAvg != null && (
-                            <span className="flex items-center gap-1 text-amber-600">
-                              ★ {i.ratingAvg.toFixed(1)} <span className="text-stone-400">({i.ratingCount})</span>
-                            </span>
-                          )}
+                          {i.ratingAvg != null && <RatingPill rating={i.ratingAvg} count={i.ratingCount} size="sm" />}
                           {i.spiceLevel >= 2 && <span className="chip bg-rose-50 text-rose-700">🌶 hot</span>}
                           <span>~{i.prepMinutes} min</span>
                           {typeof i.calories === 'number' && <span>{i.calories} kcal</span>}
@@ -367,7 +379,6 @@ export default function MenuPage() {
         </div>
       </main>
       {picking && <ItemPicker item={picking} onClose={() => setPicking(null)} />}
-      <CartFloater />
     </>
   );
 }
@@ -530,12 +541,4 @@ function ItemPicker({ item, onClose }: { item: MenuItem; onClose: () => void }) 
   );
 }
 
-function CartFloater() {
-  const { count, total } = useCart();
-  if (count === 0) return null;
-  return (
-    <a href="/cart" className="fixed bottom-5 left-1/2 z-30 -translate-x-1/2 rounded-full bg-brand-600 px-6 py-3 text-white shadow-xl shadow-brand-500/40 transition hover:bg-brand-700 hover:shadow-2xl">
-      <strong>{count}</strong> in cart · ₹{total.toFixed(0)} <span className="ml-1">→</span>
-    </a>
-  );
-}
+// Legacy CartFloater removed — replaced by the global StickyCartBar in app/layout.tsx.

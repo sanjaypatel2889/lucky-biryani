@@ -10,6 +10,7 @@ import { LiveCueBar } from '@/components/LiveCueBar';
 import { PickedForYouRail } from '@/components/PickedForYouRail';
 import { BusyIndicator } from '@/components/BusyIndicator';
 import { Onboarding } from '@/components/Onboarding';
+import { RestaurantInfoCard } from '@/components/RestaurantInfoCard';
 import { RotatingTagline } from '@/components/ui/RotatingTagline';
 import { Parallax } from '@/components/ui/Parallax';
 import { dishPhoto, HERO, STORY, SPICES, RESTAURANT } from '@/lib/photos';
@@ -341,6 +342,9 @@ export default async function Home() {
           </Reveal>
         </div>
       </section>
+
+      {/* RESTAURANT INFO ==================================================== */}
+      <RestaurantInfoCard />
 
       {/* FOOTER ============================================================= */}
       <footer className="border-t border-stone-200 bg-stone-900 text-white">

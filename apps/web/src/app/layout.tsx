@@ -6,6 +6,7 @@ import { CartProvider } from '@/lib/cart-store';
 import { LuckyAi } from '@/components/LuckyAi';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ScrollProgress } from '@/components/ui/ScrollProgress';
+import { StickyCartBar } from '@/components/StickyCartBar';
 
 const display = Playfair_Display({
   subsets: ['latin'],
@@ -77,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ToastProvider>
             <CartProvider>
               {children}
+              <StickyCartBar />
               <LuckyAi />
             </CartProvider>
           </ToastProvider>

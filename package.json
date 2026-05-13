@@ -12,9 +12,15 @@
     "db:migrate": "npm --workspace apps/api run db:migrate",
     "db:seed": "npm --workspace apps/api run db:seed",
     "db:reset": "npm --workspace apps/api run db:reset",
-    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build"
+    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "concurrently": "^9.0.1",
     "playwright": "^1.59.1"
   }

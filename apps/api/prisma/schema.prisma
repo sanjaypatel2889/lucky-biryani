@@ -43,6 +43,7 @@ model User {
   pushSubs  PushSubscription[]
   favorites Favorite[]
   chats     ChatMessage[]
+  issues    OrderIssue[]
 }
 
 model Address {
@@ -240,6 +241,7 @@ model Order {
   events  OrderEvent[]
   reviews Review[]
   chats   ChatMessage[]
+  issues  OrderIssue[]
 }
 
 model OrderItem {
@@ -463,6 +465,27 @@ model MembershipPlan {
   perkPointsMultiplier Float @default(1)  // 2 = 2× loyalty points
   isActive      Boolean @default(true)
   createdAt     String  @default("0")
+}
+
+// =============================================================================
+// Customer-reported order issues — missing item, late delivery, cold food,
+// wrong item, billing dispute. Drops into an admin queue for resolution.
+// =============================================================================
+
+model OrderIssue {
+  id          String @id @default(cuid())
+  orderId     String
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User   @relation(fields: [userId], references: [id])
+  category    String  // MISSING_ITEM | WRONG_ITEM | LATE | COLD | QUALITY | BILLING | OTHER
+  description String
+  photoUrl    String?
+  status      String  @default("OPEN") // OPEN | INVESTIGATING | RESOLVED | REJECTED
+  resolution  String?  // free-text + refund amount in the notes
+  refundedAmount Float @default(0)
+  createdAt   String  @default("0")
+  resolvedAt  String?
 }
 
 model NotificationLog {

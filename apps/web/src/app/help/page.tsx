@@ -5,6 +5,7 @@
 
 import { useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
+import { FaqAccordion } from '@/components/FaqAccordion';
 import Link from 'next/link';
 
 type FaqItem = { q: string; a: string };
@@ -99,17 +100,8 @@ export default function HelpPage() {
             <h2 className="display text-2xl font-bold text-stone-900">
               <span className="mr-2">{s.emoji}</span>{s.title}
             </h2>
-            <div className="mt-3 space-y-2">
-              {s.items.map((it, i) => (
-                <details key={i} className="card group p-4 open:bg-cream/40">
-                  <summary className="cursor-pointer list-none text-sm font-semibold text-stone-800">
-                    <span className="text-stone-400 group-open:hidden">+ </span>
-                    <span className="text-stone-400 hidden group-open:inline">− </span>
-                    {it.q}
-                  </summary>
-                  <p className="mt-2 text-sm text-stone-600">{it.a}</p>
-                </details>
-              ))}
+            <div className="mt-3">
+              <FaqAccordion items={s.items.map((it) => ({ q: it.q, a: it.a }))} />
             </div>
           </section>
         ))}

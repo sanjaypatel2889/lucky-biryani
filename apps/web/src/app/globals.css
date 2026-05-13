@@ -121,6 +121,22 @@ body {
   border-radius: 0.5rem;
 }
 
+/* Gold sheen sweep — used on premium tier cards/buttons (e.g. /club). */
+.shimmer-gold {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-gold::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(253, 224, 71, 0.35) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 2.8s ease-in-out infinite;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
 /* --- Card lift (applied to .card by default) --------------------------- */
 .card { transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease; }
 .card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -10px rgba(120, 53, 15, 0.18); }

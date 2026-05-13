@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-store';
 import { useCart } from '@/lib/cart-store';
 import { api } from '@/lib/api';
 import { LoginModal } from './LoginModal';
+import { NotificationsBell } from './NotificationsBell';
 import { ShoppingBag, Menu as MenuIcon, X as CloseIcon } from 'lucide-react';
 
 export function Header({ transparent = false }: { transparent?: boolean }) {
@@ -75,6 +76,7 @@ export function Header({ transparent = false }: { transparent?: boolean }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2 md:gap-3">
+          <NotificationsBell tone={solid ? 'dark' : 'light'} />
           <Link
             href="/cart"
             id="lbc-cart-target"
